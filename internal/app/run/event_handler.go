@@ -6,7 +6,8 @@ import (
 
 func NewEventHandler(
 	stateHandler StateHandler,
-	rowEventSerializer EventSerializer,
+	eventSerializer EventSerializer,
+	eventKeySerializer EventKeySerializer,
 	eventDispatcher EventDispatcher,
 ) (*EventHandler, error) {
 	lastPositionRead, err := stateHandler.GetLastPositionRead()
@@ -16,7 +17,8 @@ func NewEventHandler(
 
 	return &EventHandler{
 		stateHandler:       stateHandler,
-		rowEventSerializer: rowEventSerializer,
+		eventSerializer:    eventSerializer,
+		eventKeySerializer: eventKeySerializer,
 		eventDispatcher:    eventDispatcher,
 		lastPositionRead:   lastPositionRead,
 	}, nil
@@ -26,7 +28,8 @@ type EventHandler struct {
 	canal.DummyEventHandler
 
 	stateHandler       StateHandler
-	rowEventSerializer EventSerializer
+	eventSerializer    EventSerializer
+	eventKeySerializer EventKeySerializer
 	eventDispatcher    EventDispatcher
 	lastPositionRead   uint32
 }
@@ -37,8 +40,11 @@ type StateHandler interface {
 }
 
 type EventSerializer interface {
-	SerializeKey(e *canal.RowsEvent) (interface{}, error)
 	SerializeMessage(e *canal.RowsEvent) (interface{}, error)
+}
+
+type EventKeySerializer interface {
+	SerializeKey(e *canal.RowsEvent) (interface{}, error)
 }
 
 type EventDispatcher interface {
@@ -50,12 +56,12 @@ func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
 		return nil
 	}
 
-	k, err := h.rowEventSerializer.SerializeKey(e)
+	k, err := h.eventKeySerializer.SerializeKey(e)
 	if err != nil {
 		return err
 	}
 
-	m, err := h.rowEventSerializer.SerializeMessage(e)
+	m, err := h.eventSerializer.SerializeMessage(e)
 	if err != nil {
 		return err
 	}

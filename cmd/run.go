@@ -30,7 +30,8 @@ var runCmd = &cobra.Command{
 		}
 		handler, err := run.NewEventHandler(
 			getRedisStateHandler(),
-			&string2.Serializer{},
+			&string2.EventSerializer{},
+			&string2.EventKeySerializer{},
 			ed,
 		)
 		if err != nil {
