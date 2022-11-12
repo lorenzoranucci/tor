@@ -4,51 +4,64 @@ import (
 	"github.com/go-mysql-org/go-mysql/canal"
 )
 
-func NewEventHandler(
-	stateHandler StateHandler,
-	eventSerializer EventSerializer,
-	eventKeySerializer EventKeySerializer,
-	eventDispatcher EventDispatcher,
-) (*EventHandler, error) {
-	lastPositionRead, err := stateHandler.GetLastPositionRead()
-	if err != nil {
-		return nil, err
-	}
-
-	return &EventHandler{
-		stateHandler:       stateHandler,
-		eventSerializer:    eventSerializer,
-		eventKeySerializer: eventKeySerializer,
-		eventDispatcher:    eventDispatcher,
-		lastPositionRead:   lastPositionRead,
-	}, nil
-}
-
-type EventHandler struct {
-	canal.DummyEventHandler
-
-	stateHandler       StateHandler
-	eventSerializer    EventSerializer
-	eventKeySerializer EventKeySerializer
-	eventDispatcher    EventDispatcher
-	lastPositionRead   uint32
-}
+const (
+	defaultAggregateIDColumnName = "aggregate_id"
+	defaultPayloadColumnName     = "payload"
+)
 
 type StateHandler interface {
 	GetLastPositionRead() (uint32, error)
 	SetLastPositionRead(uint32) error
 }
 
-type EventSerializer interface {
-	SerializeMessage(e *canal.RowsEvent) (interface{}, error)
-}
-
-type EventKeySerializer interface {
-	SerializeKey(e *canal.RowsEvent) (interface{}, error)
+type OutboxEvent struct {
+	AggregateID string
+	Payload     []byte
 }
 
 type EventDispatcher interface {
-	Dispatch(routingKey interface{}, message interface{}) error
+	Dispatch(routingKey string, event []byte) error
+}
+
+func NewEventHandler(
+	stateHandler StateHandler,
+	eventDispatcher EventDispatcher,
+	aggregateIDColumnName string,
+	payloadColumnName string,
+) (*EventHandler, error) {
+	lastPositionRead, err := stateHandler.GetLastPositionRead()
+	if err != nil {
+		return nil, err
+	}
+
+	actualAggregateIDColumnName := defaultAggregateIDColumnName
+	if aggregateIDColumnName != "" {
+		actualAggregateIDColumnName = aggregateIDColumnName
+	}
+
+	actualPayloadColumnName := defaultPayloadColumnName
+	if payloadColumnName != "" {
+		actualPayloadColumnName = payloadColumnName
+	}
+
+	return &EventHandler{
+		stateHandler: stateHandler,
+		eventMapper: &EventMapper{
+			aggregateIDColumnName: actualAggregateIDColumnName,
+			payloadColumnName:     actualPayloadColumnName,
+		},
+		eventDispatcher:  eventDispatcher,
+		lastPositionRead: lastPositionRead,
+	}, nil
+}
+
+type EventHandler struct {
+	canal.DummyEventHandler
+
+	stateHandler     StateHandler
+	eventMapper      *EventMapper
+	eventDispatcher  EventDispatcher
+	lastPositionRead uint32
 }
 
 func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
@@ -56,19 +69,16 @@ func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
 		return nil
 	}
 
-	k, err := h.eventKeySerializer.SerializeKey(e)
+	oes, err := h.eventMapper.Map(e)
 	if err != nil {
 		return err
 	}
 
-	m, err := h.eventSerializer.SerializeMessage(e)
-	if err != nil {
-		return err
-	}
-
-	err = h.eventDispatcher.Dispatch(k, m)
-	if err != nil {
-		return err
+	for _, oe := range oes {
+		err = h.eventDispatcher.Dispatch(oe.AggregateID, oe.Payload)
+		if err != nil {
+			return err
+		}
 	}
 
 	return h.stateHandler.SetLastPositionRead(e.Header.LogPos)

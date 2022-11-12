@@ -8,7 +8,6 @@ import (
 	"github.com/lorenzoranucci/transactional-outbox-router/internal/app/run"
 	kafka2 "github.com/lorenzoranucci/transactional-outbox-router/internal/pkg/kafka"
 	redis2 "github.com/lorenzoranucci/transactional-outbox-router/internal/pkg/redis"
-	string2 "github.com/lorenzoranucci/transactional-outbox-router/internal/pkg/string"
 	"github.com/lorenzoranucci/transactional-outbox-router/pkg/kafka"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,16 +29,15 @@ var runCmd = &cobra.Command{
 		}
 		handler, err := run.NewEventHandler(
 			getRedisStateHandler(),
-			&string2.EventSerializer{},
-			&string2.EventKeySerializer{},
 			ed,
+			viper.GetString("dbAggregateIDColumnName"),
+			viper.GetString("dbPayloadColumnName"),
 		)
 		if err != nil {
 			return err
 		}
-		c.SetEventHandler(handler)
 
-		runner := run.NewRunner(c)
+		runner := run.NewRunner(c, handler)
 
 		return runner.Run()
 	},
@@ -51,6 +49,8 @@ func init() {
 	viper.MustBindEnv("dbUser", "DB_USER")
 	viper.MustBindEnv("dbPassword", "DB_PASSWORD")
 	viper.MustBindEnv("dbOutboxTableRef", "DB_OUTBOX_TABLE_REF")
+	viper.MustBindEnv("dbAggregateIDColumnName", "DB_AGGREGATE_ID_COLUMN_NAME")
+	viper.MustBindEnv("dbPayloadColumnName", "DB_PAYLOAD_COLUMN_NAME")
 
 	viper.MustBindEnv("kafkaHost", "KAFKA_HOST")
 	viper.MustBindEnv("kafkaPort", "KAFKA_PORT")

@@ -1,8 +1,6 @@
 package kafka
 
 import (
-	"fmt"
-
 	"github.com/lorenzoranucci/transactional-outbox-router/pkg/kafka"
 )
 
@@ -14,6 +12,6 @@ type EventDispatcher struct {
 	producer *kafka.Producer
 }
 
-func (k *EventDispatcher) Dispatch(routingKey interface{}, message interface{}) error {
-	return k.producer.Dispatch(fmt.Sprintf("%v", routingKey), fmt.Sprintf("%v", message))
+func (k *EventDispatcher) Dispatch(routingKey string, event []byte) error {
+	return k.producer.Dispatch(routingKey, event)
 }

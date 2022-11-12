@@ -4,7 +4,9 @@ import (
 	"github.com/go-mysql-org/go-mysql/canal"
 )
 
-func NewRunner(canal *canal.Canal) *Runner {
+func NewRunner(canal *canal.Canal, handler canal.EventHandler) *Runner {
+	canal.SetEventHandler(handler)
+
 	return &Runner{canal: canal}
 }
 
