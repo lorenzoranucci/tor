@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.19 AS builder
+FROM golang:1.19 AS build
 
 WORKDIR /srv
 
@@ -8,10 +8,12 @@ COPY . .
 
 RUN go build -o bin/transactional-outbox-router main.go
 
-FROM ubuntu:22.04
+FROM gcr.io/distroless/base-debian10
 
-WORKDIR /srv
+WORKDIR /
 
-COPY --from=builder /srv/bin/transactional-outbox-router ./transactional-outbox-router
+COPY --from=build /srv/bin/transactional-outbox-router /transactional-outbox-router
 
-ENTRYPOINT ["/srv/transactional-outbox-router"]
+USER nonroot:nonroot
+
+ENTRYPOINT ["/transactional-outbox-router"]
