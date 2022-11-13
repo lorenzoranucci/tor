@@ -1,15 +1,11 @@
 package kafka
 
-import (
-	"github.com/lorenzoranucci/transactional-outbox-router/pkg/kafka"
-)
-
-func NewEventDispatcher(producer *kafka.Producer) *EventDispatcher {
+func NewEventDispatcher(producer *Producer) *EventDispatcher {
 	return &EventDispatcher{producer: producer}
 }
 
 type EventDispatcher struct {
-	producer *kafka.Producer
+	producer *Producer
 }
 
 func (k *EventDispatcher) Dispatch(routingKey string, event []byte) error {
