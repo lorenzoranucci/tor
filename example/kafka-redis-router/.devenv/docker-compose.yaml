@@ -1,0 +1,64 @@
+name: tor
+services:
+  tor:
+    build:
+      context: ../
+    working_dir: /srv
+    volumes:
+      - ./tor-docker.yaml:/srv/tor.yaml
+    tty: true
+    command: run --config=/srv/tor.yaml
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+
+  mariadb:
+    image: mariadb:10.9
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=my_schema
+      - MYSQL_USER=guest
+      - MYSQL_PASSWORD=guest
+    volumes:
+      - ./mariadb:/etc/mysql/conf.d
+    ports:
+      - "3306:3306"
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+
+  redis:
+    image: redis:7.0
+    ports:
+      - "6379:6379"
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+
+  zookeeper:
+    image: 'bitnami/zookeeper:latest'
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+
+  kafka:
+    image: 'bitnami/kafka:3.3'
+    ports:
+      - "9093:9093"
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,EXTERNAL://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9093
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+    depends_on:
+      - zookeeper
+    deploy:
+      restart_policy:
+        condition: unless-stopped
