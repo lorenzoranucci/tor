@@ -5,9 +5,9 @@ go 1.19
 require (
 	github.com/go-mysql-org/go-mysql v1.6.0
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/lorenzoranucci/tor/adapters/kafka v0.0.0-20221113115335-8c125eeb8fcc
-	github.com/lorenzoranucci/tor/adapters/redis v0.0.0-20221113115335-8c125eeb8fcc
-	github.com/lorenzoranucci/tor/router v0.0.0-20221113115335-8c125eeb8fcc
+	github.com/lorenzoranucci/tor/adapters/kafka v0.1.0
+	github.com/lorenzoranucci/tor/adapters/redis v0.1.0
+	github.com/lorenzoranucci/tor/router v0.1.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.14.0
 )
