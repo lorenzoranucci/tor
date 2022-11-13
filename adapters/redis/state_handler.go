@@ -17,14 +17,13 @@ type StateHandler struct {
 }
 
 func (r *StateHandler) GetLastPositionRead() (uint32, error) {
-	_, err := r.client.SetNX(context.Background(), r.keyName, 0, 0).Result()
-	if err != nil {
+	val, err := r.client.Get(context.Background(), r.keyName).Result()
+	if err != nil && err != redis.Nil {
 		return 0, err
 	}
 
-	val, err := r.client.Get(context.Background(), r.keyName).Result()
-	if err != nil {
-		return 0, err
+	if err != nil && err == redis.Nil {
+		val = "0"
 	}
 
 	lastPos, err := strconv.ParseUint(val, 10, 32)
