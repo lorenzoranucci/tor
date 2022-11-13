@@ -19,13 +19,16 @@ Tor is composed of several modules so it can be extensible and make dependencies
   - `redis`: a state handler for Redis.
 - `example`: contains examples of tor apps.
   - `kafka-redis-router`: an example `router` app using `kafka` and `redis` adapters.
+- `.devenv`: developing and running examples locally. 
+It uses Go Workspaces, so every change applied to a module is reflected automatically without the need of 
+using replace or pseudo-version.
 
 ## Run example
 
 ```shell
-cd example/kafka-redis-router
+cd .devenv
 
-make devenv
+make up
 ```
 
 When every docker service is up and running, execute queries in `example/kafka-redis-router/devenv/mariadb/example_database_migration.sql`.

@@ -2,7 +2,8 @@ name: tor
 services:
   tor:
     build:
-      context: ../
+      context: ..
+      dockerfile: ./.devenv/Dockerfile
     working_dir: /srv
     volumes:
       - ./tor-docker.yaml:/srv/tor.yaml
