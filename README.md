@@ -13,7 +13,7 @@ It is designed to be lightweight, simple, modular and easy to install as a conta
 
 Tor is composed of several modules so it can be extensible and make dependencies footprint minimal.
 
-- `router`: contains the core of Tor. It is based on  [github.com/go-mysql-org/go-mysql](github.com/go-mysql-org/go-mysql).
+- `router`: contains the core of Tor. It is based on  [github.com/go-mysql-org/go-mysql](https://github.com/go-mysql-org/go-mysql).
 - `adapters`: contains the adapters with which `router` can be built to run a tor app. 
   - `kafka`: an event dispatcher for Kafka.
   - `redis`: a state handler for Redis.
