@@ -18,7 +18,8 @@ Tor is composed of several modules so it can be extensible and make dependencies
   - `kafka`: an event dispatcher for Kafka.
   - `redis`: a state handler for Redis.
 - `example`: contains examples of tor apps.
-  - `kafka-redis-router`: an example `router` app using `kafka` and `redis` adapters.
+  - `tor`: an example `router` app using `kafka` and `redis` adapters.
+  - `api-server`: an example api-server implementing a business logic, persisting state and events.
 - `.devenv`: developing and running examples locally. 
 It uses Go Workspaces, so every change applied to a module is reflected automatically without the need of 
 using replace or pseudo-version.
