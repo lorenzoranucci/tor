@@ -2,11 +2,24 @@ name: tor
 services:
   tor:
     build:
-      context: ..
-      dockerfile: ./.devenv/Dockerfile
+      context: ../example/tor
     working_dir: /srv
     volumes:
       - ./tor-docker.yaml:/srv/tor.yaml
+    tty: true
+    command: run --config=/srv/tor.yaml
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+
+  api-server:
+    build:
+      context: ../example/api-server
+    working_dir: /srv
+    volumes:
+      - ./tor-docker.yaml:/srv/tor.yaml
+    ports:
+      - "8080:8080"
     tty: true
     command: run --config=/srv/tor.yaml
     deploy:

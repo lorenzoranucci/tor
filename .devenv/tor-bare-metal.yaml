@@ -12,3 +12,5 @@ redisHost: localhost
 redisPort: 6379
 redisDB: 0
 redisKey: last_log_position_read
+
+apiPort: 8080

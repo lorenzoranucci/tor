@@ -1,4 +1,4 @@
-module github.com/lorenzoranucci/tor/example/kafka-redis-router
+module github.com/lorenzoranucci/tor/example/tor
 
 go 1.19
 

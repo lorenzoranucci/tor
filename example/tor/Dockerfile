@@ -6,7 +6,7 @@ WORKDIR /srv
 
 COPY . .
 
-RUN go build -o bin/tor main.go
+RUN go build -o bin/tor github.com/lorenzoranucci/tor/example/tor
 
 FROM gcr.io/distroless/base-debian10
 

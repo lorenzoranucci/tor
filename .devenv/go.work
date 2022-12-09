@@ -3,6 +3,7 @@ go 1.19
 use (
 	../adapters/kafka
 	../adapters/redis
-	../example/kafka-redis-router
+	../example/api-server
+	../example/tor
 	../router
 )
