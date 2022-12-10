@@ -8,6 +8,7 @@ require (
 	github.com/lorenzoranucci/tor/adapters/kafka v0.1.0
 	github.com/lorenzoranucci/tor/adapters/redis v0.1.0
 	github.com/lorenzoranucci/tor/router v0.1.0
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.14.0
 )

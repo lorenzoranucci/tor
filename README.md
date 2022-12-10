@@ -61,16 +61,23 @@ Tor is composed of several modules so it can be extensible and make dependencies
 
 ## Run example
 
+Set up the system:
 ```shell
 cd .devenv
 
 make up
 ```
 
-When every docker service is up and running, execute queries
-in `example/kafka-redis-router/devenv/mariadb/example_database_migration.sql`.
+Invoke api-server API:
+```shell
+curl --request PUT 'localhost:8080/29fd8c5b-6b44-48b6-98a3-c1c601eaae26'
 
-Optionally use [plumber](https://github.com/batchcorp/plumber) to see events written in the Kafka topic:
+curl --request PUT 'localhost:8080/5c0e9be6-ea69-452d-9824-7f55b544f2e3'
+
+curl --request DELETE 'localhost:8080/29fd8c5b-6b44-48b6-98a3-c1c601eaae26'
+```
+
+Use [plumber](https://github.com/batchcorp/plumber) or similar to see events written in the Kafka topic:
 
 ```shell
 plumber read kafka --address=localhost:9093 --topics=outbox_topic -f

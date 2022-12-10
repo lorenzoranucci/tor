@@ -1,13 +1,13 @@
 package cmd
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/cobra"
@@ -26,10 +26,15 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
+		err = initDatabase(db)
+		if err != nil {
+			return err
+		}
+
 		h := NewHTTPHandler(db)
 
 		router := httprouter.New()
-		router.POST("/", h.Post)
+		router.PUT("/:uuid", h.Put)
 		router.DELETE("/:uuid", h.Delete)
 
 		return http.ListenAndServe(fmt.Sprintf(":%s", viper.GetString("apiPort")), router)
@@ -49,14 +54,14 @@ type OrderEvent struct {
 	UUID string `json:"uuid,omitempty"`
 }
 
-func (h *HTTPHandler) Post(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func (h *HTTPHandler) Put(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
 	tx, err := h.db.Beginx()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	orderUUID := uuid.New().String()
+	orderUUID := ps.ByName("uuid")
 
 	//put business logic here
 
@@ -191,6 +196,21 @@ func NewDB() (*sqlx.DB, error) {
 		viper.GetString("dbPort"),
 	)
 	return sqlx.Connect("mysql", dsn)
+}
+
+//go:embed create_outbox_table.sql
+var createOutboxTableQuery string
+
+//go:embed create_order_table.sql
+var createOrderTableQuery string
+
+func initDatabase(db *sqlx.DB) error {
+	_, err := db.DB.Exec(createOutboxTableQuery)
+	if err != nil {
+		return err
+	}
+	_, err = db.DB.Exec(createOrderTableQuery)
+	return err
 }
 
 func init() {

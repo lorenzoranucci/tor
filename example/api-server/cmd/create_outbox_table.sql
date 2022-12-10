@@ -5,9 +5,3 @@ CREATE TABLE IF NOT EXISTS my_schema.my_outbox_table
     aggregate_id   VARCHAR(255) NOT NULL,
     payload        LONGBLOB     NOT NULL
 );
-
-CREATE TABLE IF NOT EXISTS my_schema.order
-(
-    id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    uuid CHAR(36) NOT NULL UNIQUE
-);
