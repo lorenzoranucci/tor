@@ -3,6 +3,7 @@ dbPort: 3306
 dbUser: root
 dbPassword: root
 dbOutboxTableRef: my_schema.my_outbox_table
+aggregateTypeRegexp: "(?i)^order$"
 
 kafkaHost: localhost
 kafkaPort: 9093

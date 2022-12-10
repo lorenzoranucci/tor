@@ -1,8 +1,9 @@
 name: tor
 services:
   tor:
-    build:
-      context: ../example/tor
+    build: # we use a dedicated Dockerfile to exploit the go.work feature
+      context: ..
+      dockerfile: .devenv/Dockerfile
     working_dir: /srv
     volumes:
       - ./tor-docker.yaml:/srv/tor.yaml

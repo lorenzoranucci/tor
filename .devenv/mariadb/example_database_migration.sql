@@ -1,4 +1,4 @@
-CREATE TABLE my_schema.my_outbox_table
+CREATE TABLE IF NOT EXISTS my_schema.my_outbox_table
 (
     id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     aggregate_type VARCHAR(255) NOT NULL,
@@ -6,7 +6,7 @@ CREATE TABLE my_schema.my_outbox_table
     payload        LONGBLOB     NOT NULL
 );
 
-CREATE TABLE my_schema.order
+CREATE TABLE IF NOT EXISTS my_schema.order
 (
     id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     uuid CHAR(36) NOT NULL UNIQUE

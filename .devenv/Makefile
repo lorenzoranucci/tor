@@ -11,4 +11,4 @@ logs:
 	docker compose -p tor logs -f
 
 run-tor-locally:
-	go run github.com/lorenzoranucci/tor/example/kafka-redis-router run --config=./tor-bare-metal.yaml
+	go run github.com/lorenzoranucci/tor/example/tor run --config=./tor-bare-metal.yaml

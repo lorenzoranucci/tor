@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"regexp"
 
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/go-redis/redis/v8"
 	"github.com/lorenzoranucci/tor/adapters/kafka"
 	redis2 "github.com/lorenzoranucci/tor/adapters/redis"
 	"github.com/lorenzoranucci/tor/router/pkg/run"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -26,11 +29,22 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		var aggregateTypeRegexp *regexp.Regexp
+		if r := viper.GetString("aggregateTypeRegexp"); r != "" {
+			aggregateTypeRegexp, err = regexp.Compile(r)
+			if err != nil {
+				return err
+			}
+		}
+
 		handler, err := run.NewEventHandler(
 			getRedisStateHandler(),
 			ed,
 			viper.GetString("dbAggregateIDColumnName"),
+			viper.GetString("dbAggregateTypeColumnName"),
 			viper.GetString("dbPayloadColumnName"),
+			aggregateTypeRegexp,
 		)
 		if err != nil {
 			return err
@@ -49,7 +63,9 @@ func init() {
 	viper.MustBindEnv("dbPassword", "DB_PASSWORD")
 	viper.MustBindEnv("dbOutboxTableRef", "DB_OUTBOX_TABLE_REF")
 	viper.MustBindEnv("dbAggregateIDColumnName", "DB_AGGREGATE_ID_COLUMN_NAME")
+	viper.MustBindEnv("dbAggregateTypeColumnName", "DB_AGGREGATE_TYPE_COLUMN_NAME")
 	viper.MustBindEnv("dbPayloadColumnName", "DB_PAYLOAD_COLUMN_NAME")
+	viper.MustBindEnv("aggregateTypeRegexp", "AGGREGATE_TYPE_REGEXP_EXPRESSION")
 
 	viper.MustBindEnv("kafkaHost", "KAFKA_HOST")
 	viper.MustBindEnv("kafkaPort", "KAFKA_PORT")
@@ -59,6 +75,11 @@ func init() {
 	viper.MustBindEnv("redisPort", "REDIS_PORT")
 	viper.MustBindEnv("redisDB", "REDIS_DB")
 	viper.MustBindEnv("redisKey", "REDIS_KEY")
+
+	// Configure logrus for tor/router
+	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+	logrus.SetOutput(os.Stdout)
+	logrus.SetLevel(logrus.InfoLevel)
 
 	rootCmd.AddCommand(runCmd)
 }
