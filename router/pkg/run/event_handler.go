@@ -62,9 +62,6 @@ func NewEventHandler(
 	if aggregateTypeRegexp != nil {
 		actualAggregateTypeRegexp = aggregateTypeRegexp
 	}
-	if err != nil {
-		return nil, err
-	}
 
 	return &EventHandler{
 		stateHandler: stateHandler,

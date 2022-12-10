@@ -84,7 +84,11 @@ func getColumnsValue(
 
 	payload, ok := row[payloadIndex].([]byte)
 	if !ok {
-		return "", "", nil, fmt.Errorf("payload is not []byte")
+		payloadS, ok := row[payloadIndex].(string)
+		if !ok {
+			return "", "", nil, fmt.Errorf("payload is not []byte or string")
+		}
+		payload = []byte(payloadS)
 	}
 	return aggregateID, aggregateType, payload, nil
 }
