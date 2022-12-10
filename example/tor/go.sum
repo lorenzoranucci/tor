@@ -197,8 +197,8 @@ github.com/lorenzoranucci/tor/adapters/kafka v0.1.0 h1:s1gm1mNY++8J5BXhaT3oUZARa
 github.com/lorenzoranucci/tor/adapters/kafka v0.1.0/go.mod h1:/43cbnEfMRk5kmFK3ldeUEFL6m9jXkvzS/zM52Ovfpc=
 github.com/lorenzoranucci/tor/adapters/redis v0.1.0 h1:k7S7akCxfRauWIrA1D5MOsWh1JyXyj4Jf/tdK6bxeZQ=
 github.com/lorenzoranucci/tor/adapters/redis v0.1.0/go.mod h1:6MHTCYakSZJf14Q3/2Zh4HckkLHvtCFdRHe3tUk/iDM=
-github.com/lorenzoranucci/tor/router v0.1.0 h1:8Tmb9BkfLO6FZ8bjKFhRGUqyXIpwBSIYXzkacujFpbQ=
-github.com/lorenzoranucci/tor/router v0.1.0/go.mod h1:tU5JHnUAF/nzPmniuQG/gzXAXwxax+uuKhDgxoH2NyA=
+github.com/lorenzoranucci/tor/router v0.2.0 h1:zm1MfNSELJiWK3UZpdKEsTlqcQ4Te3VLIiYhUSWgg5g=
+github.com/lorenzoranucci/tor/router v0.2.0/go.mod h1:0f8VCND/BwSMbKVjHkYf3LjARFfSW53jRMyy5VQdkC8=
 github.com/magiconair/properties v1.8.6 h1:5ibWZ6iY0NctNGWo87LalDlEZ6R41TqbbDamhfG/Qzo=
 github.com/magiconair/properties v1.8.6/go.mod h1:y3VJvCyxH9uVvJTWEGAELF3aiYNyPKd5NZ3oSwXrF60=
 github.com/mattn/go-sqlite3 v1.14.6/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
