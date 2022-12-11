@@ -38,8 +38,9 @@ var runCmd = &cobra.Command{
 			}
 		}
 
+		stateHandler := getRedisStateHandler()
 		handler, err := run.NewEventHandler(
-			getRedisStateHandler(),
+			stateHandler,
 			ed,
 			viper.GetString("dbAggregateIDColumnName"),
 			viper.GetString("dbAggregateTypeColumnName"),
@@ -50,7 +51,7 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		runner := run.NewRunner(c, handler)
+		runner := run.NewRunner(c, handler, stateHandler)
 
 		return runner.Run()
 	},

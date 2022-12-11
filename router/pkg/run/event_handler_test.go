@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-mysql-org/go-mysql/canal"
+	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/go-mysql-org/go-mysql/schema"
 	"github.com/lorenzoranucci/tor/router/pkg/run"
@@ -59,13 +60,10 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantDispatches: []dispatch{
@@ -102,13 +100,10 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 							[]byte(`{"name": "new order"}`),
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantDispatches: []dispatch{
@@ -149,13 +144,10 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher:         &EventDispatcherMock{},
 				aggregateIdColumnName:   "aggregateId",
 				aggregateTypeColumnName: "aggregateType",
@@ -200,13 +192,10 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantDispatches: []dispatch{
@@ -252,13 +241,10 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher:     &EventDispatcherMock{},
 				aggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
 			},
@@ -296,7 +282,6 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 
 func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 	type fields struct {
-		stateHandler            *StateHandlerStub
 		eventDispatcher         *EventDispatcherMock
 		aggregateIdColumnName   string
 		aggregateTypeColumnName string
@@ -314,54 +299,6 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 		wantErr            bool
 		wantErrOnConstruct bool
 	}{
-		{
-			name: "when state handler cannot get last position read then error",
-			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead:    7,
-					getLastPositionReadErr: errors.New(""),
-				},
-				eventDispatcher: &EventDispatcherMock{},
-			},
-			wantErrOnConstruct: true,
-		},
-		{
-			name: "when log position has been read already then row-event is skipped",
-			args: args{
-				e: &canal.RowsEvent{
-					Table: &schema.Table{
-						Schema: "my_schema",
-						Name:   "outbox",
-						Columns: []schema.TableColumn{
-							{
-								Name: "aggregate_id",
-							},
-							{
-								Name: "aggregate_type",
-							},
-							{
-								Name: "payload",
-							},
-						},
-					},
-					Action: canal.InsertAction,
-					Rows: [][]interface{}{
-						{
-							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
-							"order",
-							`{"name": "new order"}`,
-						},
-					},
-					Header: &replication.EventHeader{LogPos: 6},
-				},
-			},
-			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 7,
-				},
-				eventDispatcher: &EventDispatcherMock{},
-			},
-		},
 		{
 			name: "when row-event action is not insert then row-event is skipped",
 			args: args{
@@ -389,13 +326,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 		},
@@ -426,61 +360,13 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{
 					err: errors.New(""),
 				},
-			},
-			wantDispatches: []dispatch{
-				{
-					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
-					event:      []byte(`{"name": "new order"}`),
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "when state handler fails then error",
-			args: args{
-				e: &canal.RowsEvent{
-					Table: &schema.Table{
-						Schema: "my_schema",
-						Name:   "outbox",
-						Columns: []schema.TableColumn{
-							{
-								Name: "aggregate_id",
-							},
-							{
-								Name: "aggregate_type",
-							},
-							{
-								Name: "payload",
-							},
-						},
-					},
-					Action: canal.InsertAction,
-					Rows: [][]interface{}{
-						{
-							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
-							"order",
-							`{"name": "new order"}`,
-						},
-					},
-					Header: &replication.EventHeader{LogPos: 6},
-				},
-			},
-			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead:    5,
-					setLastPositionReadErr: errors.New(""),
-				},
-				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantDispatches: []dispatch{
 				{
@@ -516,13 +402,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							"order",
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantErr: true,
@@ -554,13 +437,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantErr: true,
@@ -592,13 +472,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantErr: true,
@@ -630,13 +507,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantErr: true,
@@ -668,13 +542,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantErr: true,
@@ -706,13 +577,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							`{"name": "new order"}`,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantErr: true,
@@ -744,13 +612,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 							1,
 						},
 					},
-					Header: &replication.EventHeader{LogPos: 6},
+					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				stateHandler: &StateHandlerStub{
-					getLastPositionRead: 5,
-				},
 				eventDispatcher: &EventDispatcherMock{},
 			},
 			wantErr: true,
@@ -760,7 +625,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			h, err := run.NewEventHandler(
-				tt.fields.stateHandler,
+				&StateHandlerStub{},
 				tt.fields.eventDispatcher,
 				tt.fields.aggregateIdColumnName,
 				tt.fields.aggregateTypeColumnName,
@@ -805,19 +670,12 @@ func (e *EventDispatcherMock) Dispatch(routingKey string, event []byte) error {
 	return e.err
 }
 
-type StateHandlerStub struct {
-	getLastPositionRead       uint32
-	getLastPositionReadErr    error
-	setLastPositionReadErr    error
-	actualSetLastPositionRead uint32
+type StateHandlerStub struct{}
+
+func (s *StateHandlerStub) GetLastPosition() (mysql.Position, error) {
+	return mysql.Position{}, nil
 }
 
-func (s *StateHandlerStub) GetLastPositionRead() (uint32, error) {
-	return s.getLastPositionRead, s.getLastPositionReadErr
-}
-
-func (s *StateHandlerStub) SetLastPositionRead(u uint32) error {
-	s.actualSetLastPositionRead = u
-
-	return s.setLastPositionReadErr
+func (s *StateHandlerStub) SetLastPosition(_ mysql.Position) error {
+	return nil
 }

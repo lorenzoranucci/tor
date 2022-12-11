@@ -5,7 +5,7 @@ dbPassword: root
 dbOutboxTableRef: my_schema.my_outbox_table
 aggregateTypeRegexp: "(?i)^order$"
 
-kafkaBrokers: kafka:9093
+kafkaBrokers: localhost:9093
 kafkaTopic: outbox_topic
 
 redisHost: localhost

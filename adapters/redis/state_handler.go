@@ -2,8 +2,9 @@ package redis
 
 import (
 	"context"
-	"strconv"
+	"encoding/json"
 
+	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -16,25 +17,42 @@ type StateHandler struct {
 	keyName string
 }
 
-func (r *StateHandler) GetLastPositionRead() (uint32, error) {
+func (r *StateHandler) GetLastPosition() (mysql.Position, error) {
 	val, err := r.client.Get(context.Background(), r.keyName).Result()
 	if err != nil && err != redis.Nil {
-		return 0, err
+		return mysql.Position{}, err
 	}
 
 	if err != nil && err == redis.Nil {
-		val = "0"
+		return mysql.Position{}, nil
 	}
 
-	lastPos, err := strconv.ParseUint(val, 10, 32)
+	var p mySQLPosition
+	err = json.Unmarshal([]byte(val), &p)
 	if err != nil {
-		return 0, err
+		return mysql.Position{}, err
 	}
 
-	return uint32(lastPos), err
+	return mysql.Position{
+		Name: p.Name,
+		Pos:  p.Pos,
+	}, err
 }
 
-func (r *StateHandler) SetLastPositionRead(u uint32) error {
-	s := r.client.Set(context.Background(), r.keyName, u, 0)
+func (r *StateHandler) SetLastPosition(p mysql.Position) error {
+	mp, err := json.Marshal(mySQLPosition{
+		Name: p.Name,
+		Pos:  p.Pos,
+	})
+	if err != nil {
+		return err
+	}
+
+	s := r.client.Set(context.Background(), r.keyName, mp, 0)
 	return s.Err()
+}
+
+type mySQLPosition struct {
+	Name string `json:"name,omitempty"`
+	Pos  uint32 `json:"pos,omitempty"`
 }

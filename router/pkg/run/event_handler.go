@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/go-mysql-org/go-mysql/canal"
+	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,8 +18,8 @@ const (
 var defaultAggregateTypeRegexp = regexp.MustCompile(".*")
 
 type StateHandler interface {
-	GetLastPositionRead() (uint32, error)
-	SetLastPositionRead(uint32) error
+	GetLastPosition() (mysql.Position, error)
+	SetLastPosition(position mysql.Position) error
 }
 
 type OutboxEvent struct {
@@ -38,11 +39,6 @@ func NewEventHandler(
 	payloadColumnName string,
 	aggregateTypeRegexp *regexp.Regexp,
 ) (*EventHandler, error) {
-	lastPositionRead, err := stateHandler.GetLastPositionRead()
-	if err != nil {
-		return nil, err
-	}
-
 	actualAggregateIDColumnName := defaultAggregateIDColumnName
 	if aggregateIDColumnName != "" {
 		actualAggregateIDColumnName = aggregateIDColumnName
@@ -71,28 +67,20 @@ func NewEventHandler(
 			payloadColumnName:       actualPayloadColumnName,
 			aggregateTypeRegexp:     actualAggregateTypeRegexp,
 		},
-		eventDispatcher:  eventDispatcher,
-		lastPositionRead: lastPositionRead,
+		eventDispatcher: eventDispatcher,
 	}, nil
 }
 
 type EventHandler struct {
 	canal.DummyEventHandler
 
-	stateHandler     StateHandler
-	eventMapper      *EventMapper
-	eventDispatcher  EventDispatcher
-	lastPositionRead uint32
+	stateHandler    StateHandler
+	eventMapper     *EventMapper
+	eventDispatcher EventDispatcher
 }
 
 func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
 	logrus.Debug("reading row-event")
-	if h.lastPositionRead >= e.Header.LogPos {
-		logrus.WithField("currentPositionRead", e.Header.LogPos).
-			WithField("lastPositionRead", h.lastPositionRead).
-			Info("skipping row-event that was already read")
-		return nil
-	}
 
 	oes, err := h.eventMapper.Map(e)
 	if err != nil && errors.Is(err, notInsertError) {
@@ -113,15 +101,24 @@ func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
 			Debug("event dispatched")
 	}
 
-	err = h.stateHandler.SetLastPositionRead(e.Header.LogPos)
-	if err != nil {
-		return err
-	}
-	logrus.WithField("lastPositionRead", e.Header.LogPos).
-		Debug("last position read set")
 	return err
+}
+
+func (h *EventHandler) OnPosSynced(p mysql.Position, g mysql.GTIDSet, f bool) error {
+	return h.setLastPosition(p)
 }
 
 func (h *EventHandler) String() string {
 	return "EventHandler"
+}
+
+func (h *EventHandler) setLastPosition(p mysql.Position) error {
+	err := h.stateHandler.SetLastPosition(p)
+	if err != nil {
+		return err
+	}
+	logrus.WithField("lastPosition", p).
+		Debug("last position set")
+
+	return nil
 }
