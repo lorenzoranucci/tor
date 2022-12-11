@@ -32,7 +32,6 @@ type EventDispatcher interface {
 }
 
 func NewEventHandler(
-	stateHandler StateHandler,
 	eventDispatcher EventDispatcher,
 	aggregateIDColumnName string,
 	aggregateTypeColumnName string,
@@ -60,7 +59,6 @@ func NewEventHandler(
 	}
 
 	return &EventHandler{
-		stateHandler: stateHandler,
 		eventMapper: &EventMapper{
 			aggregateIDColumnName:   actualAggregateIDColumnName,
 			aggregateTypeColumnName: actualAggregateTypeColumnName,
@@ -74,9 +72,9 @@ func NewEventHandler(
 type EventHandler struct {
 	canal.DummyEventHandler
 
-	stateHandler    StateHandler
 	eventMapper     *EventMapper
 	eventDispatcher EventDispatcher
+	positionChan    chan mysql.Position
 }
 
 func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
@@ -105,20 +103,10 @@ func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
 }
 
 func (h *EventHandler) OnPosSynced(p mysql.Position, g mysql.GTIDSet, f bool) error {
-	return h.setLastPosition(p)
+	h.positionChan <- p
+	return nil
 }
 
 func (h *EventHandler) String() string {
 	return "EventHandler"
-}
-
-func (h *EventHandler) setLastPosition(p mysql.Position) error {
-	err := h.stateHandler.SetLastPosition(p)
-	if err != nil {
-		return err
-	}
-	logrus.WithField("lastPosition", p).
-		Debug("last position set")
-
-	return nil
 }

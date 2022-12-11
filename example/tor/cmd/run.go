@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"time"
 
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/go-redis/redis/v8"
@@ -40,7 +41,6 @@ var runCmd = &cobra.Command{
 
 		stateHandler := getRedisStateHandler()
 		handler, err := run.NewEventHandler(
-			stateHandler,
 			ed,
 			viper.GetString("dbAggregateIDColumnName"),
 			viper.GetString("dbAggregateTypeColumnName"),
@@ -51,7 +51,7 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		runner := run.NewRunner(c, handler, stateHandler)
+		runner := run.NewRunner(c, handler, stateHandler, time.Second*5)
 
 		return runner.Run()
 	},
@@ -114,6 +114,8 @@ func getCanalConfig() *canal.Config {
 	cfg.Password = viper.GetString("dbPassword")
 	cfg.Dump.ExecutionPath = ""
 	cfg.IncludeTableRegex = []string{fmt.Sprintf("^%s$", viper.Get("dbOutboxTableRef"))}
+	cfg.MaxReconnectAttempts = 10
+	cfg.ReadTimeout = time.Second * 10
 
 	return cfg
 }
