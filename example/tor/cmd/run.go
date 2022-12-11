@@ -67,8 +67,7 @@ func init() {
 	viper.MustBindEnv("dbPayloadColumnName", "DB_PAYLOAD_COLUMN_NAME")
 	viper.MustBindEnv("aggregateTypeRegexp", "AGGREGATE_TYPE_REGEXP_EXPRESSION")
 
-	viper.MustBindEnv("kafkaHost", "KAFKA_HOST")
-	viper.MustBindEnv("kafkaPort", "KAFKA_PORT")
+	viper.MustBindEnv("kafkaBrokers", "KAFKA_BROKERS")
 	viper.MustBindEnv("kafkaTopic", "KAFKA_TOPIC")
 
 	viper.MustBindEnv("redisHost", "REDIS_HOST")
@@ -86,7 +85,7 @@ func init() {
 
 func getKafkaEventDispatcher() (*kafka.EventDispatcher, error) {
 	producer, err := kafka.NewProducer(
-		[]string{fmt.Sprintf("%s:%s", viper.GetString("kafkaHost"), viper.GetString("kafkaPort"))},
+		viper.GetStringSlice("kafkaBrokers"),
 		viper.GetString("kafkaTopic"),
 	)
 	if err != nil {
