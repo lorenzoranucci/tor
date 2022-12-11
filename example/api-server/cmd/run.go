@@ -10,6 +10,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -96,7 +97,10 @@ func (h *HTTPHandler) Delete(w http.ResponseWriter, _ *http.Request, ps httprout
 
 	err = h.deleteOrder(tx, orderUUID)
 	if err != nil && errors.Is(err, entityNotFound) {
-		tx.Rollback()
+		err := tx.Rollback()
+		if err != nil {
+			logrus.Warn("transaction rollback failed")
+		}
 		w.WriteHeader(http.StatusOK)
 		return
 	}
