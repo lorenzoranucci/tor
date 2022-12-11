@@ -19,3 +19,5 @@
 vendor
 
 bin
+
+docker-compose.override.yaml

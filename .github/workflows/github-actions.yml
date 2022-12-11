@@ -2,7 +2,7 @@ name: Pull Request push
 run-name: ${{ github.ref }} by ${{ github.actor }} - Pull Request push
 on: [push]
 jobs:
-  coding-quality:
+  code-quality:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
@@ -15,10 +15,10 @@ jobs:
         run: go install golang.org/x/tools/cmd/goimports@latest
       - name: Check fmt
         run: |
-          cd .devenv && make fmt && git --no-pager diff --name-only --exit-code
+          make fmt && git --no-pager diff --name-only --exit-code
       - name: Check goimports
         run: |
-          cd .devenv && make imports && git --no-pager diff --name-only --exit-code
+          make imports && git --no-pager diff --name-only --exit-code
       - name: Lint router
         uses: golangci/golangci-lint-action@v3
         with:
@@ -56,5 +56,5 @@ jobs:
           skip-build-cache: true
       - name: Test
         run: |
-          cd .devenv && make test
+          make test
 

@@ -1,0 +1,9 @@
+go 1.19
+
+use (
+	./adapters/kafka
+	./adapters/redis
+	./example/api-server
+	./example/tor
+	./router
+)
