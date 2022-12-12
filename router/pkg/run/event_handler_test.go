@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/go-mysql-org/go-mysql/canal"
-	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/go-mysql-org/go-mysql/schema"
 	"github.com/lorenzoranucci/tor/router/pkg/run"
@@ -16,8 +15,7 @@ import (
 
 func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 	type fields struct {
-		stateHandler            *StateHandlerStub
-		eventDispatcher         *EventDispatcherMock
+		eventDispatcher         *eventDispatcherMock
 		aggregateIdColumnName   string
 		aggregateTypeColumnName string
 		payloadColumnName       string
@@ -64,7 +62,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantDispatches: []dispatch{
 				{
@@ -104,7 +102,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantDispatches: []dispatch{
 				{
@@ -148,7 +146,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher:         &EventDispatcherMock{},
+				eventDispatcher:         &eventDispatcherMock{},
 				aggregateIdColumnName:   "aggregateId",
 				aggregateTypeColumnName: "aggregateType",
 				payloadColumnName:       "payload_",
@@ -196,7 +194,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantDispatches: []dispatch{
 				{
@@ -245,7 +243,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher:     &EventDispatcherMock{},
+				eventDispatcher:     &eventDispatcherMock{},
 				aggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
 			},
 			wantDispatches: []dispatch{
@@ -260,7 +258,6 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			h, err := run.NewEventHandler(
-				tt.fields.stateHandler,
 				tt.fields.eventDispatcher,
 				tt.fields.aggregateIdColumnName,
 				tt.fields.aggregateTypeColumnName,
@@ -282,7 +279,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 
 func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 	type fields struct {
-		eventDispatcher         *EventDispatcherMock
+		eventDispatcher         *eventDispatcherMock
 		aggregateIdColumnName   string
 		aggregateTypeColumnName string
 		payloadColumnName       string
@@ -330,7 +327,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 		},
 		{
@@ -364,7 +361,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{
+				eventDispatcher: &eventDispatcherMock{
 					err: errors.New(""),
 				},
 			},
@@ -406,7 +403,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantErr: true,
 		},
@@ -441,7 +438,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantErr: true,
 		},
@@ -476,7 +473,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantErr: true,
 		},
@@ -511,7 +508,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantErr: true,
 		},
@@ -546,7 +543,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantErr: true,
 		},
@@ -581,7 +578,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantErr: true,
 		},
@@ -616,7 +613,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				},
 			},
 			fields: fields{
-				eventDispatcher: &EventDispatcherMock{},
+				eventDispatcher: &eventDispatcherMock{},
 			},
 			wantErr: true,
 		},
@@ -625,7 +622,6 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			h, err := run.NewEventHandler(
-				&StateHandlerStub{},
 				tt.fields.eventDispatcher,
 				tt.fields.aggregateIdColumnName,
 				tt.fields.aggregateTypeColumnName,
@@ -656,26 +652,16 @@ type dispatch struct {
 	event      []byte
 }
 
-type EventDispatcherMock struct {
+type eventDispatcherMock struct {
 	dispatches []dispatch
 	err        error
 }
 
-func (e *EventDispatcherMock) Dispatch(routingKey string, event []byte) error {
+func (e *eventDispatcherMock) Dispatch(routingKey string, event []byte) error {
 	e.dispatches = append(e.dispatches, dispatch{
 		routingKey: routingKey,
 		event:      event,
 	})
 
 	return e.err
-}
-
-type StateHandlerStub struct{}
-
-func (s *StateHandlerStub) GetLastPosition() (mysql.Position, error) {
-	return mysql.Position{}, nil
-}
-
-func (s *StateHandlerStub) SetLastPosition(_ mysql.Position) error {
-	return nil
 }

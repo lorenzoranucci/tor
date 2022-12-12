@@ -35,4 +35,4 @@ test:
 	@find . -name go.mod \
      | sed 's/\/[^\/]*$$//' \
      | xargs -I {} bash -c \
-     'echo "testing {}" && go test {}/...'
+     'echo "testing {}" && go test --race {}/...'
