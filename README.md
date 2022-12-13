@@ -63,8 +63,6 @@ Tor is composed of several modules so it can be extensible and make dependencies
 
 Set up the system:
 ```shell
-cd .devenv
-
 make up
 ```
 

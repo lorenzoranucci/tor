@@ -19,6 +19,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 		aggregateIdColumnName   string
 		aggregateTypeColumnName string
 		payloadColumnName       string
+		headersColumnsNames     []string
 		aggregateTypeRegexp     *regexp.Regexp
 	}
 	type args struct {
@@ -253,6 +254,67 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "single row-event, with headers",
+			args: args{
+				e: &canal.RowsEvent{
+					Table: &schema.Table{
+						Schema: "my_schema",
+						Name:   "outbox",
+						Columns: []schema.TableColumn{
+							{
+								Name: "aggregate_id",
+							},
+							{
+								Name: "counter",
+							},
+							{
+								Name: "aggregate_type",
+							},
+							{
+								Name: "payload",
+							},
+							{
+								Name: "uuid",
+							},
+						},
+					},
+					Action: canal.InsertAction,
+					Rows: [][]interface{}{
+						{
+							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
+							1,
+							"order",
+							`{"name": "new order"}`,
+							"b948f9a6-5797-4585-b386-dd8a1a4e30db",
+						},
+					},
+					Header: &replication.EventHeader{},
+				},
+			},
+			fields: fields{
+				eventDispatcher:     &eventDispatcherMock{},
+				headersColumnsNames: []string{"uuid", "counter"},
+			},
+			wantDispatches: []dispatch{
+				{
+					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
+					event:      []byte(`{"name": "new order"}`), headers: []struct {
+						Key   []byte
+						Value []byte
+					}{
+						{
+							Key:   []byte("uuid"),
+							Value: []byte("b948f9a6-5797-4585-b386-dd8a1a4e30db"),
+						},
+						{
+							Key:   []byte("counter"),
+							Value: []byte("1"),
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -262,6 +324,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				tt.fields.aggregateIdColumnName,
 				tt.fields.aggregateTypeColumnName,
 				tt.fields.payloadColumnName,
+				tt.fields.headersColumnsNames,
 				tt.fields.aggregateTypeRegexp,
 			)
 			require.NoError(t, err)
@@ -283,6 +346,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 		aggregateIdColumnName   string
 		aggregateTypeColumnName string
 		payloadColumnName       string
+		headersColumnsNames     []string
 		aggregateTypeRegexp     *regexp.Regexp
 	}
 	type args struct {
@@ -408,6 +472,45 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "when a header's column value is missing then error",
+			args: args{
+				e: &canal.RowsEvent{
+					Table: &schema.Table{
+						Schema: "my_schema",
+						Name:   "outbox",
+						Columns: []schema.TableColumn{
+							{
+								Name: "aggregate_id",
+							},
+							{
+								Name: "aggregate_type",
+							},
+							{
+								Name: "payload",
+							},
+							{
+								Name: "uuid",
+							},
+						},
+					},
+					Action: canal.InsertAction,
+					Rows: [][]interface{}{
+						{
+							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
+							"order",
+							"",
+						},
+					},
+					Header: &replication.EventHeader{},
+				},
+			},
+			fields: fields{
+				eventDispatcher:     &eventDispatcherMock{},
+				headersColumnsNames: []string{"uuid"},
+			},
+			wantErr: true,
+		},
+		{
 			name: "when aggregate-id column is missing then error",
 			args: args{
 				e: &canal.RowsEvent{
@@ -509,6 +612,42 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "when header column is missing then error",
+			args: args{
+				e: &canal.RowsEvent{
+					Table: &schema.Table{
+						Schema: "my_schema",
+						Name:   "outbox",
+						Columns: []schema.TableColumn{
+							{
+								Name: "aggregate_id",
+							},
+							{
+								Name: "aggregate_type",
+							},
+							{
+								Name: "payload",
+							},
+						},
+					},
+					Action: canal.InsertAction,
+					Rows: [][]interface{}{
+						{
+							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
+							"order",
+							`{"name": "new order"}`,
+						},
+					},
+					Header: &replication.EventHeader{},
+				},
+			},
+			fields: fields{
+				eventDispatcher:     &eventDispatcherMock{},
+				headersColumnsNames: []string{"uuid"},
 			},
 			wantErr: true,
 		},
@@ -626,6 +765,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				tt.fields.aggregateIdColumnName,
 				tt.fields.aggregateTypeColumnName,
 				tt.fields.payloadColumnName,
+				tt.fields.headersColumnsNames,
 				tt.fields.aggregateTypeRegexp,
 			)
 			if (err != nil) != tt.wantErrOnConstruct {
@@ -650,6 +790,10 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 type dispatch struct {
 	routingKey string
 	event      []byte
+	headers    []struct {
+		Key   []byte
+		Value []byte
+	}
 }
 
 type eventDispatcherMock struct {
@@ -657,10 +801,14 @@ type eventDispatcherMock struct {
 	err        error
 }
 
-func (e *eventDispatcherMock) Dispatch(routingKey string, event []byte) error {
+func (e *eventDispatcherMock) Dispatch(routingKey string, event []byte, headers []struct {
+	Key   []byte
+	Value []byte
+}) error {
 	e.dispatches = append(e.dispatches, dispatch{
 		routingKey: routingKey,
 		event:      event,
+		headers:    headers,
 	})
 
 	return e.err

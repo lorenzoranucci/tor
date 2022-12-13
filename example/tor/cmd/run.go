@@ -45,6 +45,7 @@ var runCmd = &cobra.Command{
 			viper.GetString("dbAggregateIDColumnName"),
 			viper.GetString("dbAggregateTypeColumnName"),
 			viper.GetString("dbPayloadColumnName"),
+			viper.GetStringSlice("dbHeadersColumnsNames"),
 			aggregateTypeRegexp,
 		)
 		if err != nil {
@@ -66,6 +67,7 @@ func init() {
 	viper.MustBindEnv("dbAggregateIDColumnName", "DB_AGGREGATE_ID_COLUMN_NAME")
 	viper.MustBindEnv("dbAggregateTypeColumnName", "DB_AGGREGATE_TYPE_COLUMN_NAME")
 	viper.MustBindEnv("dbPayloadColumnName", "DB_PAYLOAD_COLUMN_NAME")
+	viper.MustBindEnv("dbHeadersColumnsNames", "DB_HEADERS_COLUMNS_NAME")
 	viper.MustBindEnv("aggregateTypeRegexp", "AGGREGATE_TYPE_REGEXP_EXPRESSION")
 
 	viper.MustBindEnv("kafkaBrokers", "KAFKA_BROKERS")

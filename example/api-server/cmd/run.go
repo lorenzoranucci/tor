@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
@@ -135,12 +136,13 @@ func (h *HTTPHandler) insertEvent(tx *sqlx.Tx, eventName string, orderUUID strin
 	}
 
 	query := `
-INSERT INTO my_schema.my_outbox_table (aggregate_type, aggregate_id, payload)
-VALUES ('order', :aggregate_id, :payload);`
+INSERT INTO my_schema.my_outbox_table (uuid, aggregate_type, aggregate_id, payload)
+VALUES (:uuid, 'order', :aggregate_id, :payload);`
 
 	if _, err := tx.NamedExec(
 		h.db.Rebind(query),
 		map[string]interface{}{
+			"uuid":         uuid.New().String(),
 			"aggregate_id": orderUUID,
 			"payload":      payload,
 		},

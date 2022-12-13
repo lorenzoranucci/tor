@@ -22,13 +22,26 @@ type StateHandler interface {
 	SetLastPosition(position mysql.Position) error
 }
 
-type OutboxEvent struct {
+type outboxEvent struct {
 	AggregateID string
 	Payload     []byte
+	Headers     []eventHeader
+}
+
+type eventHeader struct {
+	Key   []byte
+	Value []byte
 }
 
 type EventDispatcher interface {
-	Dispatch(routingKey string, event []byte) error
+	Dispatch(
+		routingKey string,
+		event []byte,
+		headers []struct {
+			Key   []byte
+			Value []byte
+		},
+	) error
 }
 
 func NewEventHandler(
@@ -36,6 +49,7 @@ func NewEventHandler(
 	aggregateIDColumnName string,
 	aggregateTypeColumnName string,
 	payloadColumnName string,
+	headersColumnsNames []string,
 	aggregateTypeRegexp *regexp.Regexp,
 ) (*EventHandler, error) {
 	actualAggregateIDColumnName := defaultAggregateIDColumnName
@@ -63,6 +77,7 @@ func NewEventHandler(
 			aggregateIDColumnName:   actualAggregateIDColumnName,
 			aggregateTypeColumnName: actualAggregateTypeColumnName,
 			payloadColumnName:       actualPayloadColumnName,
+			headersColumnsNames:     headersColumnsNames,
 			aggregateTypeRegexp:     actualAggregateTypeRegexp,
 		},
 		eventDispatcher: eventDispatcher,
@@ -90,7 +105,7 @@ func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
 	}
 
 	for _, oe := range oes {
-		err = h.eventDispatcher.Dispatch(oe.AggregateID, oe.Payload)
+		err = h.eventDispatcher.Dispatch(oe.AggregateID, oe.Payload, mapHeaders(oe.Headers))
 		if err != nil {
 			return err
 		}
@@ -109,4 +124,24 @@ func (h *EventHandler) OnPosSynced(p mysql.Position, g mysql.GTIDSet, f bool) er
 
 func (h *EventHandler) String() string {
 	return "EventHandler"
+}
+
+func mapHeaders(h []eventHeader) []struct {
+	Key   []byte
+	Value []byte
+} {
+	if len(h) == 0 {
+		return nil
+	}
+
+	r := make([]struct {
+		Key   []byte
+		Value []byte
+	}, 0, len(h))
+
+	for _, v := range h {
+		r = append(r, v)
+	}
+
+	return r
 }
