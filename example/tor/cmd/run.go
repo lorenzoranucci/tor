@@ -117,7 +117,6 @@ func getCanalConfig() *canal.Config {
 	cfg.Dump.ExecutionPath = ""
 	cfg.IncludeTableRegex = []string{fmt.Sprintf("^%s$", viper.Get("dbOutboxTableRef"))}
 	cfg.MaxReconnectAttempts = 10
-	cfg.ReadTimeout = time.Second * 10
 
 	return cfg
 }
