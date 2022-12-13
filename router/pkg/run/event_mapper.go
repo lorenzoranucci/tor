@@ -13,29 +13,35 @@ type EventMapper struct {
 	aggregateIDColumnName   string
 	aggregateTypeColumnName string
 	payloadColumnName       string
+	headersColumnsNames     []string
 	aggregateTypeRegexp     *regexp.Regexp
 }
 
 var notInsertError = errors.New("row-event is not an insert")
 
-func (e *EventMapper) Map(event *canal.RowsEvent) ([]OutboxEvent, error) {
+func (e *EventMapper) Map(event *canal.RowsEvent) ([]outboxEvent, error) {
 	if event.Action != canal.InsertAction {
 		return nil, notInsertError
 	}
 
-	aggregateIDIndex, aggregateTypeIndex, payloadIndex, err := e.getColumnsIndex(event)
+	aggregateIDIndex, aggregateTypeIndex, payloadIndex, err := e.getMainColumnsIndices(event)
 	if err != nil {
 		return nil, err
 	}
 
-	oes := make([]OutboxEvent, 0, len(event.Rows))
+	headerColumnsIndices, err := e.getHeadersColumnsIndices(event, e.headersColumnsNames)
+	if err != nil {
+		return nil, err
+	}
+
+	oes := make([]outboxEvent, 0, len(event.Rows))
 	for _, row := range event.Rows {
-		err := assertRowSizeIsValid(len(row), []int{aggregateTypeIndex, aggregateIDIndex, payloadIndex})
+		err := assertRowSizeIsValid(len(row), []int{aggregateTypeIndex, aggregateIDIndex, payloadIndex}, headerColumnsIndices)
 		if err != nil {
 			return nil, err
 		}
 
-		aggregateID, aggregateType, payload, err := getColumnsValue(row, aggregateIDIndex, aggregateTypeIndex, payloadIndex)
+		aggregateID, aggregateType, payload, err := getMainColumnsValue(row, aggregateIDIndex, aggregateTypeIndex, payloadIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -47,18 +53,27 @@ func (e *EventMapper) Map(event *canal.RowsEvent) ([]OutboxEvent, error) {
 			continue
 		}
 
-		oes = append(oes, OutboxEvent{
+		h := getHeaderColumnsValues(row, headerColumnsIndices)
+
+		oes = append(oes, outboxEvent{
 			AggregateID: aggregateID,
 			Payload:     payload,
+			Headers:     h,
 		})
 	}
 
 	return oes, nil
 }
 
-func assertRowSizeIsValid(rowLen int, columnIndices []int) error {
+func assertRowSizeIsValid(rowLen int, columnIndices []int, headerColumnIndices []headerIndex) error {
 	for _, index := range columnIndices {
 		if index >= rowLen {
+			return fmt.Errorf("unexpected event row size")
+		}
+	}
+
+	for _, index := range headerColumnIndices {
+		if index.index >= rowLen {
 			return fmt.Errorf("unexpected event row size")
 		}
 	}
@@ -66,7 +81,7 @@ func assertRowSizeIsValid(rowLen int, columnIndices []int) error {
 	return nil
 }
 
-func getColumnsValue(
+func getMainColumnsValue(
 	row []interface{},
 	aggregateIDIndex int,
 	aggregateTypeIndex int,
@@ -93,7 +108,7 @@ func getColumnsValue(
 	return aggregateID, aggregateType, payload, nil
 }
 
-func (e *EventMapper) getColumnsIndex(event *canal.RowsEvent) (int, int, int, error) {
+func (e *EventMapper) getMainColumnsIndices(event *canal.RowsEvent) (int, int, int, error) {
 	aggregateIDIndex := -1
 	aggregateTypeIndex := -1
 	payloadIndex := -1
@@ -127,4 +142,44 @@ func (e *EventMapper) getColumnsIndex(event *canal.RowsEvent) (int, int, int, er
 	}
 
 	return aggregateIDIndex, aggregateTypeIndex, payloadIndex, nil
+}
+
+func getHeaderColumnsValues(
+	row []interface{},
+	columnIndicesMap []headerIndex,
+) []eventHeader {
+	r := make([]eventHeader, 0, len(columnIndicesMap))
+	for _, i := range columnIndicesMap {
+		r = append(r, eventHeader{
+			Key:   []byte(i.name),
+			Value: []byte(fmt.Sprintf("%v", row[i.index])),
+		})
+	}
+
+	return r
+}
+
+type headerIndex struct {
+	name  string
+	index int
+}
+
+func (e *EventMapper) getHeadersColumnsIndices(event *canal.RowsEvent, columnNames []string) ([]headerIndex, error) {
+	r := make([]headerIndex, 0, len(columnNames))
+outerLoop:
+	for _, cm := range columnNames {
+		for i, etc := range event.Table.Columns {
+			if etc.Name == cm {
+				r = append(r, headerIndex{
+					name:  cm,
+					index: i,
+				})
+				continue outerLoop
+			}
+		}
+
+		return nil, fmt.Errorf("column not found with name: %s", cm)
+	}
+
+	return r, nil
 }

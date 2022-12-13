@@ -18,12 +18,17 @@ func NewProducer(brokers []string, topic string) (*Producer, error) {
 	return &Producer{syncProducer: syncProducer, topic: topic}, nil
 }
 
-func (p *Producer) Dispatch(key string, message []byte) error {
+func (p *Producer) Dispatch(
+	key string,
+	message []byte,
+	headers []sarama.RecordHeader,
+) error {
 	_, _, err := p.syncProducer.SendMessage(
 		&sarama.ProducerMessage{
-			Key:   sarama.StringEncoder(key),
-			Topic: p.topic,
-			Value: sarama.ByteEncoder(message),
+			Key:     sarama.StringEncoder(key),
+			Topic:   p.topic,
+			Value:   sarama.ByteEncoder(message),
+			Headers: headers,
 		},
 	)
 

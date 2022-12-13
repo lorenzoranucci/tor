@@ -4,6 +4,9 @@ dbUser: root
 dbPassword: root
 dbOutboxTableRef: my_schema.my_outbox_table
 aggregateTypeRegexp: "(?i)^order$"
+dbHeadersColumnsNames:
+  - uuid
+
 
 kafkaBrokers: kafka:9092
 kafkaTopic: outbox_topic

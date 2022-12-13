@@ -13,7 +13,7 @@ import (
 )
 
 func TestRunner_RunWhenCanalRunFail(t *testing.T) {
-	handler, err := run.NewEventHandler(nil, "", "", "", nil)
+	handler, err := run.NewEventHandler(nil, "", "", "", nil, nil)
 	require.NoError(t, err)
 
 	expectedErr := errors.New("a")
@@ -29,7 +29,7 @@ func TestRunner_RunWhenCanalRunFail(t *testing.T) {
 }
 
 func TestRunner_RunWhenStateHandlerSetFail(t *testing.T) {
-	handler, err := run.NewEventHandler(nil, "", "", "", nil)
+	handler, err := run.NewEventHandler(nil, "", "", "", nil, nil)
 	require.NoError(t, err)
 
 	expectedErr := errors.New("a")
@@ -45,7 +45,7 @@ func TestRunner_RunWhenStateHandlerSetFail(t *testing.T) {
 }
 
 func TestRunner_RunWhenStateHandlerGetFail(t *testing.T) {
-	handler, err := run.NewEventHandler(nil, "", "", "", nil)
+	handler, err := run.NewEventHandler(nil, "", "", "", nil, nil)
 	require.NoError(t, err)
 
 	expectedErr := errors.New("a")
@@ -61,7 +61,7 @@ func TestRunner_RunWhenStateHandlerGetFail(t *testing.T) {
 }
 
 func TestRunner_RunWhenNoError(t *testing.T) {
-	handler, err := run.NewEventHandler(nil, "", "", "", nil)
+	handler, err := run.NewEventHandler(nil, "", "", "", nil, nil)
 	require.NoError(t, err)
 
 	r := run.NewRunner(
