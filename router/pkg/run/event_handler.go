@@ -51,6 +51,7 @@ func NewEventHandler(
 	payloadColumnName string,
 	headersColumnsNames []string,
 	aggregateTypeRegexp *regexp.Regexp,
+	includeTransactionTimestamp bool,
 ) (*EventHandler, error) {
 	actualAggregateIDColumnName := defaultAggregateIDColumnName
 	if aggregateIDColumnName != "" {
@@ -74,11 +75,12 @@ func NewEventHandler(
 
 	return &EventHandler{
 		eventMapper: &EventMapper{
-			aggregateIDColumnName:   actualAggregateIDColumnName,
-			aggregateTypeColumnName: actualAggregateTypeColumnName,
-			payloadColumnName:       actualPayloadColumnName,
-			headersColumnsNames:     headersColumnsNames,
-			aggregateTypeRegexp:     actualAggregateTypeRegexp,
+			aggregateIDColumnName:       actualAggregateIDColumnName,
+			aggregateTypeColumnName:     actualAggregateTypeColumnName,
+			payloadColumnName:           actualPayloadColumnName,
+			headersColumnsNames:         headersColumnsNames,
+			aggregateTypeRegexp:         actualAggregateTypeRegexp,
+			includeTransactionTimestamp: includeTransactionTimestamp,
 		},
 		eventDispatcher: eventDispatcher,
 	}, nil

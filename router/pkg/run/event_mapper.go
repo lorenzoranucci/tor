@@ -10,11 +10,12 @@ import (
 )
 
 type EventMapper struct {
-	aggregateIDColumnName   string
-	aggregateTypeColumnName string
-	payloadColumnName       string
-	headersColumnsNames     []string
-	aggregateTypeRegexp     *regexp.Regexp
+	aggregateIDColumnName       string
+	aggregateTypeColumnName     string
+	payloadColumnName           string
+	headersColumnsNames         []string
+	aggregateTypeRegexp         *regexp.Regexp
+	includeTransactionTimestamp bool
 }
 
 var notInsertError = errors.New("row-event is not an insert")
@@ -54,6 +55,13 @@ func (e *EventMapper) Map(event *canal.RowsEvent) ([]outboxEvent, error) {
 		}
 
 		h := getHeaderColumnsValues(row, headerColumnsIndices)
+
+		if e.includeTransactionTimestamp {
+			h = append(h, eventHeader{
+				Key:   []byte("transactionTimestamp"),
+				Value: []byte(fmt.Sprintf("%d", event.Header.Timestamp)),
+			})
+		}
 
 		oes = append(oes, outboxEvent{
 			AggregateID: aggregateID,
@@ -148,7 +156,7 @@ func getHeaderColumnsValues(
 	row []interface{},
 	columnIndicesMap []headerIndex,
 ) []eventHeader {
-	r := make([]eventHeader, 0, len(columnIndicesMap))
+	r := make([]eventHeader, 0, len(columnIndicesMap)+1)
 	for _, i := range columnIndicesMap {
 		r = append(r, eventHeader{
 			Key:   []byte(i.name),

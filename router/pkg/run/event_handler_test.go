@@ -15,12 +15,13 @@ import (
 
 func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 	type fields struct {
-		eventDispatcher         *eventDispatcherMock
-		aggregateIdColumnName   string
-		aggregateTypeColumnName string
-		payloadColumnName       string
-		headersColumnsNames     []string
-		aggregateTypeRegexp     *regexp.Regexp
+		eventDispatcher             *eventDispatcherMock
+		aggregateIdColumnName       string
+		aggregateTypeColumnName     string
+		payloadColumnName           string
+		headersColumnsNames         []string
+		aggregateTypeRegexp         *regexp.Regexp
+		includeTransactionTimestamp bool
 	}
 	type args struct {
 		e *canal.RowsEvent
@@ -315,6 +316,65 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "single row-event, with transaction timestamp",
+			args: args{
+				e: &canal.RowsEvent{
+					Table: &schema.Table{
+						Schema: "my_schema",
+						Name:   "outbox",
+						Columns: []schema.TableColumn{
+							{
+								Name: "aggregate_id",
+							},
+							{
+								Name: "counter",
+							},
+							{
+								Name: "aggregate_type",
+							},
+							{
+								Name: "payload",
+							},
+							{
+								Name: "uuid",
+							},
+						},
+					},
+					Action: canal.InsertAction,
+					Rows: [][]interface{}{
+						{
+							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
+							1,
+							"order",
+							`{"name": "new order"}`,
+							"b948f9a6-5797-4585-b386-dd8a1a4e30db",
+						},
+					},
+					Header: &replication.EventHeader{
+						Timestamp: 100,
+					},
+				},
+			},
+			fields: fields{
+				eventDispatcher:             &eventDispatcherMock{},
+				includeTransactionTimestamp: true,
+			},
+			wantDispatches: []dispatch{
+				{
+					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
+					event:      []byte(`{"name": "new order"}`), headers: []struct {
+						Key   []byte
+						Value []byte
+					}{
+						{
+							Key:   []byte("transactionTimestamp"),
+							Value: []byte("100"),
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -326,6 +386,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				tt.fields.payloadColumnName,
 				tt.fields.headersColumnsNames,
 				tt.fields.aggregateTypeRegexp,
+				tt.fields.includeTransactionTimestamp,
 			)
 			require.NoError(t, err)
 
@@ -767,6 +828,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				tt.fields.payloadColumnName,
 				tt.fields.headersColumnsNames,
 				tt.fields.aggregateTypeRegexp,
+				false,
 			)
 			if (err != nil) != tt.wantErrOnConstruct {
 				t.Errorf("NewEventHandler() error = %v, wantErr %v", err, tt.wantErrOnConstruct)

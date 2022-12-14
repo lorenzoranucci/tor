@@ -13,8 +13,7 @@ import (
 )
 
 func TestRunner_RunWhenCanalRunFail(t *testing.T) {
-	handler, err := run.NewEventHandler(nil, "", "", "", nil, nil)
-	require.NoError(t, err)
+	handler := buildEventHandler(t)
 
 	expectedErr := errors.New("a")
 	r := run.NewRunner(
@@ -24,13 +23,12 @@ func TestRunner_RunWhenCanalRunFail(t *testing.T) {
 		1*time.Millisecond,
 	)
 
-	err = r.Run()
+	err := r.Run()
 	assert.Equal(t, err, expectedErr)
 }
 
 func TestRunner_RunWhenStateHandlerSetFail(t *testing.T) {
-	handler, err := run.NewEventHandler(nil, "", "", "", nil, nil)
-	require.NoError(t, err)
+	handler := buildEventHandler(t)
 
 	expectedErr := errors.New("a")
 	r := run.NewRunner(
@@ -40,13 +38,12 @@ func TestRunner_RunWhenStateHandlerSetFail(t *testing.T) {
 		1*time.Millisecond,
 	)
 
-	err = r.Run()
+	err := r.Run()
 	assert.Equal(t, err, expectedErr)
 }
 
 func TestRunner_RunWhenStateHandlerGetFail(t *testing.T) {
-	handler, err := run.NewEventHandler(nil, "", "", "", nil, nil)
-	require.NoError(t, err)
+	handler := buildEventHandler(t)
 
 	expectedErr := errors.New("a")
 	r := run.NewRunner(
@@ -56,13 +53,12 @@ func TestRunner_RunWhenStateHandlerGetFail(t *testing.T) {
 		1*time.Millisecond,
 	)
 
-	err = r.Run()
+	err := r.Run()
 	assert.Equal(t, err, expectedErr)
 }
 
 func TestRunner_RunWhenNoError(t *testing.T) {
-	handler, err := run.NewEventHandler(nil, "", "", "", nil, nil)
-	require.NoError(t, err)
+	handler := buildEventHandler(t)
 
 	r := run.NewRunner(
 		&canalMock{},
@@ -71,7 +67,7 @@ func TestRunner_RunWhenNoError(t *testing.T) {
 		1*time.Millisecond,
 	)
 
-	err = r.Run()
+	err := r.Run()
 	assert.NoError(t, err)
 }
 
@@ -99,4 +95,18 @@ func (s *stateHandlerMock) GetLastPosition() (mysql.Position, error) {
 
 func (s *stateHandlerMock) SetLastPosition(mysql.Position) error {
 	return s.setLastPositionErr
+}
+
+func buildEventHandler(t *testing.T) *run.EventHandler {
+	eh, err := run.NewEventHandler(
+		nil,
+		"",
+		"",
+		"",
+		nil,
+		nil,
+		false,
+	)
+	require.NoError(t, err)
+	return eh
 }
