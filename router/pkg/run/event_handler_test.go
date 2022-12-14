@@ -20,7 +20,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 		aggregateTypeColumnName     string
 		payloadColumnName           string
 		headersColumnsNames         []string
-		aggregateTypeRegexp         *regexp.Regexp
+		aggregateTypeTopicPairs     []run.AggregateTypeTopicPair
 		includeTransactionTimestamp bool
 	}
 	type args struct {
@@ -33,6 +33,40 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 		wantDispatches []dispatch
 		wantErr        bool
 	}{
+		{
+			name: "no topic-aggregate type pair then no dispatch",
+			args: args{
+				e: &canal.RowsEvent{
+					Table: &schema.Table{
+						Schema: "my_schema",
+						Name:   "outbox",
+						Columns: []schema.TableColumn{
+							{
+								Name: "aggregate_id",
+							},
+							{
+								Name: "aggregate_type",
+							},
+							{
+								Name: "payload",
+							},
+						},
+					},
+					Action: canal.InsertAction,
+					Rows: [][]interface{}{
+						{
+							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
+							"order",
+							`{"name": "new order"}`,
+						},
+					},
+					Header: &replication.EventHeader{},
+				},
+			},
+			fields: fields{
+				eventDispatcher: &eventDispatcherMock{},
+			},
+		},
 		{
 			name: "single row-event, with string payload, and default column ids",
 			args: args{
@@ -65,9 +99,16 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantDispatches: []dispatch{
 				{
+					topic:      "order",
 					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
 					event:      []byte(`{"name": "new order"}`),
 				},
@@ -105,9 +146,16 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantDispatches: []dispatch{
 				{
+					topic:      "order",
 					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
 					event:      []byte(`{"name": "new order"}`),
 				},
@@ -152,9 +200,16 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				aggregateIdColumnName:   "aggregateId",
 				aggregateTypeColumnName: "aggregateType",
 				payloadColumnName:       "payload_",
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantDispatches: []dispatch{
 				{
+					topic:      "order",
 					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
 					event:      []byte(`{"name": "new order"}`),
 				},
@@ -197,20 +252,28 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantDispatches: []dispatch{
 				{
+					topic:      "order",
 					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
 					event:      []byte(`{"name": "new order"}`),
 				},
 				{
+					topic:      "order",
 					routingKey: "c38a5d13-788c-4878-8bdc-c012cbad5b82",
 					event:      []byte(`{"name": "new order"}`),
 				},
 			},
 		},
 		{
-			name: "multiple row-events, with entry not matching aggregate-type regexp",
+			name: "multiple row-events, with one entry not matching aggregate-type regexp",
 			args: args{
 				e: &canal.RowsEvent{
 					Table: &schema.Table{
@@ -238,20 +301,87 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 						{
 							"c38a5d13-788c-4878-8bdc-c012cbad5b82",
 							"invoice",
-							`{"name": "new order"}`,
+							`{"name": "new invoice"}`,
 						},
 					},
 					Header: &replication.EventHeader{},
 				},
 			},
 			fields: fields{
-				eventDispatcher:     &eventDispatcherMock{},
-				aggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantDispatches: []dispatch{
 				{
+					topic:      "order",
 					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
 					event:      []byte(`{"name": "new order"}`),
+				},
+			},
+		},
+		{
+			name: "multiple row-events, with different matching aggregate-types regexp",
+			args: args{
+				e: &canal.RowsEvent{
+					Table: &schema.Table{
+						Schema: "my_schema",
+						Name:   "outbox",
+						Columns: []schema.TableColumn{
+							{
+								Name: "aggregate_id",
+							},
+							{
+								Name: "aggregate_type",
+							},
+							{
+								Name: "payload",
+							},
+						},
+					},
+					Action: canal.InsertAction,
+					Rows: [][]interface{}{
+						{
+							"c44ade3e-9394-4e6e-8d2d-20707d61061c",
+							"order",
+							[]byte(`{"name": "new order"}`),
+						},
+						{
+							"c38a5d13-788c-4878-8bdc-c012cbad5b82",
+							"invoice",
+							`{"name": "new invoice"}`,
+						},
+					},
+					Header: &replication.EventHeader{},
+				},
+			},
+			fields: fields{
+				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^invoice$"),
+						Topic:               "invoice",
+					},
+				},
+			},
+			wantDispatches: []dispatch{
+				{
+					topic:      "order",
+					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
+					event:      []byte(`{"name": "new order"}`),
+				},
+				{
+					topic:      "invoice",
+					routingKey: "c38a5d13-788c-4878-8bdc-c012cbad5b82",
+					event:      []byte(`{"name": "new invoice"}`),
 				},
 			},
 		},
@@ -296,9 +426,16 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 			fields: fields{
 				eventDispatcher:     &eventDispatcherMock{},
 				headersColumnsNames: []string{"uuid", "counter"},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantDispatches: []dispatch{
 				{
+					topic:      "order",
 					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
 					event:      []byte(`{"name": "new order"}`), headers: []struct {
 						Key   []byte
@@ -359,9 +496,16 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 			fields: fields{
 				eventDispatcher:             &eventDispatcherMock{},
 				includeTransactionTimestamp: true,
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantDispatches: []dispatch{
 				{
+					topic:      "order",
 					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
 					event:      []byte(`{"name": "new order"}`), headers: []struct {
 						Key   []byte
@@ -385,7 +529,7 @@ func TestEventHandler_OnRow_HappyPaths(t *testing.T) {
 				tt.fields.aggregateTypeColumnName,
 				tt.fields.payloadColumnName,
 				tt.fields.headersColumnsNames,
-				tt.fields.aggregateTypeRegexp,
+				tt.fields.aggregateTypeTopicPairs,
 				tt.fields.includeTransactionTimestamp,
 			)
 			require.NoError(t, err)
@@ -408,7 +552,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 		aggregateTypeColumnName string
 		payloadColumnName       string
 		headersColumnsNames     []string
-		aggregateTypeRegexp     *regexp.Regexp
+		aggregateTypeTopicPairs []run.AggregateTypeTopicPair
 	}
 	type args struct {
 		e *canal.RowsEvent
@@ -453,6 +597,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 		},
 		{
@@ -489,9 +639,16 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				eventDispatcher: &eventDispatcherMock{
 					err: errors.New(""),
 				},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantDispatches: []dispatch{
 				{
+					topic:      "order",
 					routingKey: "c44ade3e-9394-4e6e-8d2d-20707d61061c",
 					event:      []byte(`{"name": "new order"}`),
 				},
@@ -529,6 +686,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -568,6 +731,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			fields: fields{
 				eventDispatcher:     &eventDispatcherMock{},
 				headersColumnsNames: []string{"uuid"},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -603,6 +772,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -638,6 +813,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -673,6 +854,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -709,6 +896,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			fields: fields{
 				eventDispatcher:     &eventDispatcherMock{},
 				headersColumnsNames: []string{"uuid"},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -744,6 +937,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -779,6 +978,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -814,6 +1019,12 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 			},
 			fields: fields{
 				eventDispatcher: &eventDispatcherMock{},
+				aggregateTypeTopicPairs: []run.AggregateTypeTopicPair{
+					{
+						AggregateTypeRegexp: regexp.MustCompile("(?i)^order$"),
+						Topic:               "order",
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -827,7 +1038,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 				tt.fields.aggregateTypeColumnName,
 				tt.fields.payloadColumnName,
 				tt.fields.headersColumnsNames,
-				tt.fields.aggregateTypeRegexp,
+				tt.fields.aggregateTypeTopicPairs,
 				false,
 			)
 			if (err != nil) != tt.wantErrOnConstruct {
@@ -850,6 +1061,7 @@ func TestEventHandler_OnRow_UnhappyPaths(t *testing.T) {
 }
 
 type dispatch struct {
+	topic      string
 	routingKey string
 	event      []byte
 	headers    []struct {
@@ -863,11 +1075,12 @@ type eventDispatcherMock struct {
 	err        error
 }
 
-func (e *eventDispatcherMock) Dispatch(routingKey string, event []byte, headers []struct {
+func (e *eventDispatcherMock) Dispatch(topic string, routingKey string, event []byte, headers []struct {
 	Key   []byte
 	Value []byte
 }) error {
 	e.dispatches = append(e.dispatches, dispatch{
+		topic:      topic,
 		routingKey: routingKey,
 		event:      event,
 		headers:    headers,

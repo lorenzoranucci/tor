@@ -15,8 +15,6 @@ const (
 	defaultPayloadColumnName       = "payload"
 )
 
-var defaultAggregateTypeRegexp = regexp.MustCompile(".*")
-
 type StateHandler interface {
 	GetLastPosition() (mysql.Position, error)
 	SetLastPosition(position mysql.Position) error
@@ -26,6 +24,7 @@ type outboxEvent struct {
 	AggregateID string
 	Payload     []byte
 	Headers     []eventHeader
+	Topic       string
 }
 
 type eventHeader struct {
@@ -35,6 +34,7 @@ type eventHeader struct {
 
 type EventDispatcher interface {
 	Dispatch(
+		topic string,
 		routingKey string,
 		event []byte,
 		headers []struct {
@@ -44,13 +44,18 @@ type EventDispatcher interface {
 	) error
 }
 
+type AggregateTypeTopicPair struct {
+	AggregateTypeRegexp *regexp.Regexp
+	Topic               string
+}
+
 func NewEventHandler(
 	eventDispatcher EventDispatcher,
 	aggregateIDColumnName string,
 	aggregateTypeColumnName string,
 	payloadColumnName string,
 	headersColumnsNames []string,
-	aggregateTypeRegexp *regexp.Regexp,
+	aggregateTypeTopicPairs []AggregateTypeTopicPair,
 	includeTransactionTimestamp bool,
 ) (*EventHandler, error) {
 	actualAggregateIDColumnName := defaultAggregateIDColumnName
@@ -68,18 +73,13 @@ func NewEventHandler(
 		actualPayloadColumnName = payloadColumnName
 	}
 
-	actualAggregateTypeRegexp := defaultAggregateTypeRegexp
-	if aggregateTypeRegexp != nil {
-		actualAggregateTypeRegexp = aggregateTypeRegexp
-	}
-
 	return &EventHandler{
 		eventMapper: &EventMapper{
 			aggregateIDColumnName:       actualAggregateIDColumnName,
 			aggregateTypeColumnName:     actualAggregateTypeColumnName,
 			payloadColumnName:           actualPayloadColumnName,
 			headersColumnsNames:         headersColumnsNames,
-			aggregateTypeRegexp:         actualAggregateTypeRegexp,
+			aggregateTypeTopicPairs:     aggregateTypeTopicPairs,
 			includeTransactionTimestamp: includeTransactionTimestamp,
 		},
 		eventDispatcher: eventDispatcher,
@@ -107,7 +107,7 @@ func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
 	}
 
 	for _, oe := range oes {
-		err = h.eventDispatcher.Dispatch(oe.AggregateID, oe.Payload, mapHeaders(oe.Headers))
+		err = h.eventDispatcher.Dispatch(oe.Topic, oe.AggregateID, oe.Payload, mapHeaders(oe.Headers))
 		if err != nil {
 			return err
 		}

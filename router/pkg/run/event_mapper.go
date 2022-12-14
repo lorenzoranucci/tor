@@ -3,7 +3,6 @@ package run
 import (
 	"errors"
 	"fmt"
-	"regexp"
 
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/sirupsen/logrus"
@@ -14,7 +13,7 @@ type EventMapper struct {
 	aggregateTypeColumnName     string
 	payloadColumnName           string
 	headersColumnsNames         []string
-	aggregateTypeRegexp         *regexp.Regexp
+	aggregateTypeTopicPairs     []AggregateTypeTopicPair
 	includeTransactionTimestamp bool
 }
 
@@ -47,13 +46,6 @@ func (e *EventMapper) Map(event *canal.RowsEvent) ([]outboxEvent, error) {
 			return nil, err
 		}
 
-		if !e.aggregateTypeRegexp.MatchString(aggregateType) {
-			logrus.WithField("aggregateType", aggregateType).
-				WithField("aggregateTypeRegexp", e.aggregateTypeRegexp.String()).
-				Info("skipping outbox event that does not match aggregate type regexp")
-			continue
-		}
-
 		h := getHeaderColumnsValues(row, headerColumnsIndices)
 
 		if e.includeTransactionTimestamp {
@@ -63,11 +55,21 @@ func (e *EventMapper) Map(event *canal.RowsEvent) ([]outboxEvent, error) {
 			})
 		}
 
-		oes = append(oes, outboxEvent{
-			AggregateID: aggregateID,
-			Payload:     payload,
-			Headers:     h,
-		})
+		for _, pair := range e.aggregateTypeTopicPairs {
+			if !pair.AggregateTypeRegexp.MatchString(aggregateType) {
+				logrus.WithField("aggregateType", aggregateType).
+					WithField("aggregateTypeTopicPairs", pair.AggregateTypeRegexp.String()).
+					Debug("skipping outbox event that does not match aggregate type regexp")
+				continue
+			}
+
+			oes = append(oes, outboxEvent{
+				Topic:       pair.Topic,
+				AggregateID: aggregateID,
+				Payload:     payload,
+				Headers:     h,
+			})
+		}
 	}
 
 	return oes, nil

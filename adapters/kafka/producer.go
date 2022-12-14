@@ -6,19 +6,19 @@ import (
 
 type Producer struct {
 	syncProducer sarama.SyncProducer
-	topic        string
 }
 
-func NewProducer(brokers []string, topic string) (*Producer, error) {
+func NewProducer(brokers []string) (*Producer, error) {
 	syncProducer, err := newSyncProducer(brokers)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Producer{syncProducer: syncProducer, topic: topic}, nil
+	return &Producer{syncProducer: syncProducer}, nil
 }
 
 func (p *Producer) Dispatch(
+	topic string,
 	key string,
 	message []byte,
 	headers []sarama.RecordHeader,
@@ -26,7 +26,7 @@ func (p *Producer) Dispatch(
 	_, _, err := p.syncProducer.SendMessage(
 		&sarama.ProducerMessage{
 			Key:     sarama.StringEncoder(key),
-			Topic:   p.topic,
+			Topic:   topic,
 			Value:   sarama.ByteEncoder(message),
 			Headers: headers,
 		},
