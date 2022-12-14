@@ -47,6 +47,7 @@ var runCmd = &cobra.Command{
 			viper.GetString("dbPayloadColumnName"),
 			viper.GetStringSlice("dbHeadersColumnsNames"),
 			aggregateTypeRegexp,
+			viper.GetBool("includeTransactionTimestamp"),
 		)
 		if err != nil {
 			return err
@@ -69,6 +70,8 @@ func init() {
 	viper.MustBindEnv("dbPayloadColumnName", "DB_PAYLOAD_COLUMN_NAME")
 	viper.MustBindEnv("dbHeadersColumnsNames", "DB_HEADERS_COLUMNS_NAME")
 	viper.MustBindEnv("aggregateTypeRegexp", "AGGREGATE_TYPE_REGEXP_EXPRESSION")
+	viper.MustBindEnv("includeTransactionTimestamp", "INCLUDE_TRANSACTION_TIMESTAMP")
+	viper.SetDefault("includeTransactionTimestamp", true)
 
 	viper.MustBindEnv("kafkaBrokers", "KAFKA_BROKERS")
 	viper.MustBindEnv("kafkaTopic", "KAFKA_TOPIC")
