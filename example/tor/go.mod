@@ -7,7 +7,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/lorenzoranucci/tor/adapters/kafka v0.2.0
 	github.com/lorenzoranucci/tor/adapters/redis v0.2.0
-	github.com/lorenzoranucci/tor/router v0.5.0
+	github.com/lorenzoranucci/tor/router v0.6.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.14.0
