@@ -11,6 +11,7 @@ type EventDispatcher struct {
 }
 
 func (k *EventDispatcher) Dispatch(
+	topic string,
 	routingKey string,
 	event []byte,
 	headers []struct {
@@ -18,7 +19,7 @@ func (k *EventDispatcher) Dispatch(
 		Value []byte
 	},
 ) error {
-	return k.producer.Dispatch(routingKey, event, mapHeaders(headers))
+	return k.producer.Dispatch(topic, routingKey, event, mapHeaders(headers))
 }
 
 func mapHeaders(h []struct {

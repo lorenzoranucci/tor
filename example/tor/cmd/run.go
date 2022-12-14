@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -31,12 +32,9 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		var aggregateTypeRegexp *regexp.Regexp
-		if r := viper.GetString("aggregateTypeRegexp"); r != "" {
-			aggregateTypeRegexp, err = regexp.Compile(r)
-			if err != nil {
-				return err
-			}
+		aggregateTypeTopicPairs, err := getAggregateTypeTopicPairs()
+		if err != nil {
+			return err
 		}
 
 		stateHandler := getRedisStateHandler()
@@ -46,7 +44,7 @@ var runCmd = &cobra.Command{
 			viper.GetString("dbAggregateTypeColumnName"),
 			viper.GetString("dbPayloadColumnName"),
 			viper.GetStringSlice("dbHeadersColumnsNames"),
-			aggregateTypeRegexp,
+			aggregateTypeTopicPairs,
 			viper.GetBool("includeTransactionTimestamp"),
 		)
 		if err != nil {
@@ -59,6 +57,28 @@ var runCmd = &cobra.Command{
 	},
 }
 
+func getAggregateTypeTopicPairs() ([]run.AggregateTypeTopicPair, error) {
+	topicsToPairWithAggregateTypeRegex := viper.GetStringSlice("topicsToPairWithAggregateTypeRegex")
+	aggregateTypeRegexToPairWithTopics := viper.GetStringSlice("aggregateTypeRegexToPairWithTopics")
+	if len(topicsToPairWithAggregateTypeRegex) != len(aggregateTypeRegexToPairWithTopics) {
+		return nil, errors.New("topicsToPairWithAggregateTypeRegex and aggregateTypeRegexToPairWithTopics must have same length")
+	}
+	aggregateTypeTopicPairs := make([]run.AggregateTypeTopicPair, 0, len(topicsToPairWithAggregateTypeRegex))
+	for i := 0; i < len(topicsToPairWithAggregateTypeRegex); i++ {
+		aggregateTypeRegexp, err := regexp.Compile(aggregateTypeRegexToPairWithTopics[i])
+		if err != nil {
+			return nil, err
+		}
+
+		aggregateTypeTopicPairs = append(aggregateTypeTopicPairs, run.AggregateTypeTopicPair{
+			AggregateTypeRegexp: aggregateTypeRegexp,
+			Topic:               topicsToPairWithAggregateTypeRegex[i],
+		})
+	}
+
+	return aggregateTypeTopicPairs, nil
+}
+
 func init() {
 	viper.MustBindEnv("dbHost", "DB_HOST")
 	viper.MustBindEnv("dbPort", "DB_PORT")
@@ -69,12 +89,12 @@ func init() {
 	viper.MustBindEnv("dbAggregateTypeColumnName", "DB_AGGREGATE_TYPE_COLUMN_NAME")
 	viper.MustBindEnv("dbPayloadColumnName", "DB_PAYLOAD_COLUMN_NAME")
 	viper.MustBindEnv("dbHeadersColumnsNames", "DB_HEADERS_COLUMNS_NAME")
-	viper.MustBindEnv("aggregateTypeRegexp", "AGGREGATE_TYPE_REGEXP_EXPRESSION")
 	viper.MustBindEnv("includeTransactionTimestamp", "INCLUDE_TRANSACTION_TIMESTAMP")
 	viper.SetDefault("includeTransactionTimestamp", true)
+	viper.MustBindEnv("aggregateTypeRegexToPairWithTopics", "AGGREGATE_TYPE_REGEX_TO_PAIR_WITH_TOPICS")
+	viper.MustBindEnv("topicsToPairWithAggregateTypeRegex", "TOPICS_TO_PAIR_WITH_AGGREGATE_TYPE_REGEX")
 
 	viper.MustBindEnv("kafkaBrokers", "KAFKA_BROKERS")
-	viper.MustBindEnv("kafkaTopic", "KAFKA_TOPIC")
 
 	viper.MustBindEnv("redisHost", "REDIS_HOST")
 	viper.MustBindEnv("redisPort", "REDIS_PORT")
@@ -92,7 +112,6 @@ func init() {
 func getKafkaEventDispatcher() (*kafka.EventDispatcher, error) {
 	producer, err := kafka.NewProducer(
 		viper.GetStringSlice("kafkaBrokers"),
-		viper.GetString("kafkaTopic"),
 	)
 	if err != nil {
 		return nil, err
