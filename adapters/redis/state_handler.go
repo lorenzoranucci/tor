@@ -36,7 +36,7 @@ func (r *StateHandler) GetLastPosition() (mysql.Position, error) {
 	return mysql.Position{
 		Name: p.Name,
 		Pos:  p.Pos,
-	}, err
+	}, nil
 }
 
 func (r *StateHandler) SetLastPosition(p mysql.Position) error {

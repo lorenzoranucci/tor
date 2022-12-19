@@ -20,28 +20,21 @@ type StateHandler interface {
 	SetLastPosition(position mysql.Position) error
 }
 
-type outboxEvent struct {
-	AggregateID string
-	Payload     []byte
-	Headers     []eventHeader
-	Topic       string
+type OutboxEvent struct {
+	AggregateID                []byte
+	AggregateType              []byte
+	Payload                    []byte
+	Columns                    []Column
+	EventTimestampFromDatabase uint32
 }
 
-type eventHeader struct {
-	Key   []byte
+type Column struct {
+	Name  []byte
 	Value []byte
 }
 
 type EventDispatcher interface {
-	Dispatch(
-		topic string,
-		routingKey string,
-		event []byte,
-		headers []struct {
-			Key   []byte
-			Value []byte
-		},
-	) error
+	Dispatch(event OutboxEvent) error
 }
 
 type AggregateTypeTopicPair struct {
@@ -54,9 +47,6 @@ func NewEventHandler(
 	aggregateIDColumnName string,
 	aggregateTypeColumnName string,
 	payloadColumnName string,
-	headersColumnsNames []string,
-	aggregateTypeTopicPairs []AggregateTypeTopicPair,
-	includeTransactionTimestamp bool,
 ) (*EventHandler, error) {
 	actualAggregateIDColumnName := defaultAggregateIDColumnName
 	if aggregateIDColumnName != "" {
@@ -75,12 +65,9 @@ func NewEventHandler(
 
 	return &EventHandler{
 		eventMapper: &EventMapper{
-			aggregateIDColumnName:       actualAggregateIDColumnName,
-			aggregateTypeColumnName:     actualAggregateTypeColumnName,
-			payloadColumnName:           actualPayloadColumnName,
-			headersColumnsNames:         headersColumnsNames,
-			aggregateTypeTopicPairs:     aggregateTypeTopicPairs,
-			includeTransactionTimestamp: includeTransactionTimestamp,
+			aggregateIDColumnName:   actualAggregateIDColumnName,
+			aggregateTypeColumnName: actualAggregateTypeColumnName,
+			payloadColumnName:       actualPayloadColumnName,
 		},
 		eventDispatcher: eventDispatcher,
 	}, nil
@@ -107,12 +94,11 @@ func (h *EventHandler) OnRow(e *canal.RowsEvent) error {
 	}
 
 	for _, oe := range oes {
-		err = h.eventDispatcher.Dispatch(oe.Topic, oe.AggregateID, oe.Payload, mapHeaders(oe.Headers))
+		err = h.eventDispatcher.Dispatch(oe)
 		if err != nil {
 			return err
 		}
-		logrus.WithField("aggregateId", oe.AggregateID).
-			WithField("payload", oe.Payload).
+		logrus.WithField("event", oe).
 			Debug("event dispatched")
 	}
 
@@ -126,24 +112,4 @@ func (h *EventHandler) OnPosSynced(p mysql.Position, g mysql.GTIDSet, f bool) er
 
 func (h *EventHandler) String() string {
 	return "EventHandler"
-}
-
-func mapHeaders(h []eventHeader) []struct {
-	Key   []byte
-	Value []byte
-} {
-	if len(h) == 0 {
-		return nil
-	}
-
-	r := make([]struct {
-		Key   []byte
-		Value []byte
-	}, 0, len(h))
-
-	for _, v := range h {
-		r = append(r, v)
-	}
-
-	return r
 }
