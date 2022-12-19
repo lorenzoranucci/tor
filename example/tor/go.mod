@@ -3,6 +3,7 @@ module github.com/lorenzoranucci/tor/example/tor
 go 1.19
 
 require (
+	github.com/Shopify/sarama v1.37.2
 	github.com/go-mysql-org/go-mysql v1.6.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/lorenzoranucci/tor/adapters/kafka v0.4.0
@@ -15,7 +16,6 @@ require (
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
-	github.com/Shopify/sarama v1.37.2 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
