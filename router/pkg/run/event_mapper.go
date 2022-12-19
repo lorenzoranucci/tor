@@ -5,191 +5,119 @@ import (
 	"fmt"
 
 	"github.com/go-mysql-org/go-mysql/canal"
-	"github.com/sirupsen/logrus"
+	"github.com/go-mysql-org/go-mysql/schema"
 )
 
 type EventMapper struct {
-	aggregateIDColumnName       string
-	aggregateTypeColumnName     string
-	payloadColumnName           string
-	headersColumnsNames         []string
-	aggregateTypeTopicPairs     []AggregateTypeTopicPair
-	includeTransactionTimestamp bool
+	aggregateIDColumnName   string
+	aggregateTypeColumnName string
+	payloadColumnName       string
 }
 
 var notInsertError = errors.New("row-event is not an insert")
 
-func (e *EventMapper) Map(event *canal.RowsEvent) ([]outboxEvent, error) {
+func (e *EventMapper) Map(event *canal.RowsEvent) ([]OutboxEvent, error) {
 	if event.Action != canal.InsertAction {
 		return nil, notInsertError
 	}
 
-	aggregateIDIndex, aggregateTypeIndex, payloadIndex, err := e.getMainColumnsIndices(event)
+	err := assertRowsSizesAreValid(event)
 	if err != nil {
 		return nil, err
 	}
 
-	headerColumnsIndices, err := e.getHeadersColumnsIndices(event, e.headersColumnsNames)
-	if err != nil {
-		return nil, err
-	}
-
-	oes := make([]outboxEvent, 0, len(event.Rows))
+	oes := make([]OutboxEvent, 0, len(event.Rows))
 	for _, row := range event.Rows {
-		err := assertRowSizeIsValid(len(row), []int{aggregateTypeIndex, aggregateIDIndex, payloadIndex}, headerColumnsIndices)
+		c := getColumns(event.Table.Columns, row)
+
+		aggregateID, aggregateType, payload, err := e.getMainColumnsValue(c)
 		if err != nil {
 			return nil, err
 		}
 
-		aggregateID, aggregateType, payload, err := getMainColumnsValue(row, aggregateIDIndex, aggregateTypeIndex, payloadIndex)
-		if err != nil {
-			return nil, err
-		}
-
-		h := getHeaderColumnsValues(row, headerColumnsIndices)
-
-		if e.includeTransactionTimestamp {
-			h = append(h, eventHeader{
-				Key:   []byte("transactionTimestamp"),
-				Value: []byte(fmt.Sprintf("%d", event.Header.Timestamp)),
-			})
-		}
-
-		for _, pair := range e.aggregateTypeTopicPairs {
-			if !pair.AggregateTypeRegexp.MatchString(aggregateType) {
-				logrus.WithField("aggregateType", aggregateType).
-					WithField("aggregateTypeTopicPairs", pair.AggregateTypeRegexp.String()).
-					Debug("skipping outbox event that does not match aggregate type regexp")
-				continue
-			}
-
-			oes = append(oes, outboxEvent{
-				Topic:       pair.Topic,
-				AggregateID: aggregateID,
-				Payload:     payload,
-				Headers:     h,
-			})
-		}
+		oes = append(oes, OutboxEvent{
+			AggregateID:                aggregateID,
+			AggregateType:              aggregateType,
+			Payload:                    payload,
+			Columns:                    c,
+			EventTimestampFromDatabase: event.Header.Timestamp,
+		})
 	}
 
 	return oes, nil
 }
 
-func assertRowSizeIsValid(rowLen int, columnIndices []int, headerColumnIndices []headerIndex) error {
-	for _, index := range columnIndices {
-		if index >= rowLen {
-			return fmt.Errorf("unexpected event row size")
-		}
-	}
-
-	for _, index := range headerColumnIndices {
-		if index.index >= rowLen {
-			return fmt.Errorf("unexpected event row size")
+func assertRowsSizesAreValid(event *canal.RowsEvent) error {
+	for _, row := range event.Rows {
+		if len(event.Table.Columns) != len(row) {
+			return errors.New("unexpected row length")
 		}
 	}
 
 	return nil
 }
 
-func getMainColumnsValue(
-	row []interface{},
-	aggregateIDIndex int,
-	aggregateTypeIndex int,
-	payloadIndex int,
-) (string, string, []byte, error) {
-	aggregateID, ok := row[aggregateIDIndex].(string)
-	if !ok {
-		return "", "", nil, fmt.Errorf("aggregate id is not string")
-	}
+func getColumns(
+	tableColumns []schema.TableColumn,
+	rowColumns []interface{},
+) []Column {
+	r := make([]Column, 0, len(tableColumns))
+	for i, etc := range tableColumns {
+		if rowColumns[i] == nil {
+			r = append(r, Column{
+				Name:  []byte(etc.Name),
+				Value: nil,
+			})
 
-	aggregateType, ok := row[aggregateTypeIndex].(string)
-	if !ok {
-		return "", "", nil, fmt.Errorf("aggregate type is not string")
-	}
+			continue
+		}
 
-	payload, ok := row[payloadIndex].([]byte)
-	if !ok {
-		payloadS, ok := row[payloadIndex].(string)
+		cv, ok := rowColumns[i].([]byte)
 		if !ok {
-			return "", "", nil, fmt.Errorf("payload is not []byte or string")
-		}
-		payload = []byte(payloadS)
-	}
-	return aggregateID, aggregateType, payload, nil
-}
-
-func (e *EventMapper) getMainColumnsIndices(event *canal.RowsEvent) (int, int, int, error) {
-	aggregateIDIndex := -1
-	aggregateTypeIndex := -1
-	payloadIndex := -1
-	for i, column := range event.Table.Columns {
-		if column.Name == e.aggregateIDColumnName {
-			aggregateIDIndex = i
-			continue
+			cv = []byte(fmt.Sprintf("%v", rowColumns[i]))
 		}
 
-		if column.Name == e.payloadColumnName {
-			payloadIndex = i
-			continue
-		}
-
-		if column.Name == e.aggregateTypeColumnName {
-			aggregateTypeIndex = i
-			continue
-		}
-	}
-
-	if aggregateIDIndex == -1 {
-		return -1, -1, -1, fmt.Errorf("outbox table has no '%s' column", e.aggregateIDColumnName)
-	}
-
-	if aggregateTypeIndex == -1 {
-		return -1, -1, -1, fmt.Errorf("outbox table has no '%s' column", e.aggregateTypeColumnName)
-	}
-
-	if payloadIndex == -1 {
-		return -1, -1, -1, fmt.Errorf("outbox table has no '%s' column", e.payloadColumnName)
-	}
-
-	return aggregateIDIndex, aggregateTypeIndex, payloadIndex, nil
-}
-
-func getHeaderColumnsValues(
-	row []interface{},
-	columnIndicesMap []headerIndex,
-) []eventHeader {
-	r := make([]eventHeader, 0, len(columnIndicesMap)+1)
-	for _, i := range columnIndicesMap {
-		r = append(r, eventHeader{
-			Key:   []byte(i.name),
-			Value: []byte(fmt.Sprintf("%v", row[i.index])),
+		r = append(r, Column{
+			Name:  []byte(etc.Name),
+			Value: cv,
 		})
 	}
 
 	return r
 }
 
-type headerIndex struct {
-	name  string
-	index int
-}
-
-func (e *EventMapper) getHeadersColumnsIndices(event *canal.RowsEvent, columnNames []string) ([]headerIndex, error) {
-	r := make([]headerIndex, 0, len(columnNames))
-outerLoop:
-	for _, cm := range columnNames {
-		for i, etc := range event.Table.Columns {
-			if etc.Name == cm {
-				r = append(r, headerIndex{
-					name:  cm,
-					index: i,
-				})
-				continue outerLoop
-			}
+func (e *EventMapper) getMainColumnsValue(
+	columns []Column,
+) ([]byte, []byte, []byte, error) {
+	var aggregateID, aggregateType, payload []byte
+	for _, column := range columns {
+		if column.Name == nil {
+			continue
 		}
 
-		return nil, fmt.Errorf("column not found with name: %s", cm)
+		switch string(column.Name) {
+		case e.aggregateIDColumnName:
+			aggregateID = column.Value
+		case e.aggregateTypeColumnName:
+			aggregateType = column.Value
+		case e.payloadColumnName:
+			payload = column.Value
+		default:
+			continue
+		}
 	}
 
-	return r, nil
+	if aggregateID == nil {
+		return nil, nil, nil, fmt.Errorf("%s Column not found", e.aggregateIDColumnName)
+	}
+
+	if aggregateType == nil {
+		return nil, nil, nil, fmt.Errorf("%s Column not found", e.aggregateTypeColumnName)
+	}
+
+	if payload == nil {
+		return nil, nil, nil, fmt.Errorf("%s Column not found", e.payloadColumnName)
+	}
+
+	return aggregateID, aggregateType, payload, nil
 }

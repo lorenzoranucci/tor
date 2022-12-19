@@ -3,16 +3,20 @@ dbPort: 3306
 dbUser: root
 dbPassword: root
 dbOutboxTableRef: my_schema.my_outbox_table
-dbHeadersColumnsNames:
-  - uuid
-topicsToPairWithAggregateTypeRegex:
-  - order
-  - invoice
-aggregateTypeRegexToPairWithTopics:
-  - "(?i)^order$"
-  - "(?i)^invoice$"
 
 kafkaBrokers: kafka:9092
+kafkaTopics:
+  - name: "order"
+    numPartitions: 1
+    replicationFactor: 1
+    aggregateTypeRegexp: "(?i)^order$"
+  - name: "invoice"
+    numPartitions: 1
+    replicationFactor: 1
+    aggregateTypeRegexp: "(?i)^invoice"
+kafkaHeaderMappings:
+  - columnName: "uuid"
+    headerName: "uuid"
 
 redisHost: redis
 redisPort: 6379

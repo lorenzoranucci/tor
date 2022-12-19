@@ -103,9 +103,6 @@ func buildEventHandler(t *testing.T) *run.EventHandler {
 		"",
 		"",
 		"",
-		nil,
-		nil,
-		false,
 	)
 	require.NoError(t, err)
 	return eh
